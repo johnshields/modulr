@@ -1,7 +1,7 @@
 {
   "name": "modulr-api",
   "version": "1.0.0",
-  "description": "Music equipment rental API using Supabase",
+  "description": "Music equipment rental API",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

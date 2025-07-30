@@ -1,17 +1,27 @@
-const express = require('express');
-const dotenv = require('dotenv');
-const { createClient } = require('@supabase/supabase-js');
+const express = require("express");
+const dotenv = require("dotenv");
+const { createClient } = require("@supabase/supabase-js");
 
 dotenv.config();
 const app = express();
 app.use(express.json());
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 
-// Health check endpoint
-app.get('/', (req, res) => {
-  res.json({ status: 'modulr API is live...' });
+// Load balancer
+app.get("/", (req, res) => {
+  res.json({ status: "modulr API is live..." });
 });
 
-const PORT = process.env.PORT || 3000;
+// Equipment endpoints
+app.get("/api/equipment", async (req, res) => {
+  const { data, error } = await supabase.from("equipment").select("*");
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`modulr API running on port ${PORT}`));
