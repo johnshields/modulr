@@ -2,12 +2,14 @@
 const router = express.Router();
 const {
     getAllGear,
+    addGear,
     getGearById,
-    addGear
+    deleteGear
 } = require('../controllers/gearController');
 
 router.get('/', getAllGear);
-router.get('/:id', getGearById);
 router.post('/', addGear);
+router.get('/:id', getGearById);
+router.delete('/:id', deleteGear);
 
 module.exports = router;
