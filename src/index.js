@@ -23,5 +23,22 @@ app.get("/api/equipment", async (req, res) => {
   res.json(data);
 });
 
+// GET equipment by ID
+app.get("/api/equipment/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const { data, error } = await supabase
+    .from("equipment")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    return res.status(404).json({ error: error.message });
+  }
+
+  res.json(data);
+});
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`modulr API running on port ${PORT}`));
