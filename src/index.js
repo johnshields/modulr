@@ -17,18 +17,22 @@ app.get("/", (req, res) => {
 });
 
 // Equipment endpoints
-app.get("/api/equipment", async (req, res) => {
-  const { data, error } = await supabase.from("equipment").select("*");
-  if (error) return res.status(500).json({ error: error.message });
+app.get("/api/items", async (req, res) => {
+  const { data, error } = await supabase.from("items").select("*");
+  
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
   res.json(data);
 });
 
 // GET equipment by ID
-app.get("/api/equipment/:id", async (req, res) => {
+app.get("/api/items/:id", async (req, res) => {
   const { id } = req.params;
 
   const { data, error } = await supabase
-    .from("equipment")
+    .from("items")
     .select("*")
     .eq("id", id)
     .single();
