@@ -1,3 +1,3 @@
 # modulr
 
-A music equipment rental API.
+A music gear rental API.
