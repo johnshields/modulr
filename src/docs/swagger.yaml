@@ -1,0 +1,108 @@
+﻿openapi: 3.0.0
+info:
+  title: modulr API
+  version: 1.0.0
+  description: A simple and scalable API for renting music gear. Built with Node.js, Express, and Supabase.
+servers:
+  - url: http://localhost:8080
+
+tags:
+  - name: Gear
+    description: Endpoints for managing music gear
+
+paths:
+  /api/gear:
+    get:
+      summary: List all gear
+      tags: [ Gear ]
+      responses:
+        '200':
+          description: A list of gear items
+    post:
+      summary: Add new gear
+      tags: [ Gear ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Gear'
+      responses:
+        '201':
+          description: Gear created
+
+  /api/gear/{id}:
+    get:
+      summary: Get gear by ID
+      tags: [ Gear ]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Gear item found
+        '404':
+          description: Gear not found
+    put:
+      summary: Update gear by ID
+      tags: [ Gear ]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Gear'
+      responses:
+        '200':
+          description: Gear updated
+        '404':
+          description: Gear not found
+    delete:
+      summary: Delete gear by ID
+      tags: [ Gear ]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Gear deleted
+        '404':
+          description: Gear not found
+
+components:
+  schemas:
+    Gear:
+      type: object
+      required:
+        - name
+        - category
+        - rental_price
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        condition:
+          type: string
+          default: good
+        rental_price:
+          type: number
+        is_available:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
