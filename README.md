@@ -2,7 +2,7 @@
 
 A simple and scalable API for renting music gear. Built with **Node.js**, **Express**, and **Supabase**.
 
-## Development Environment 🧰 
+## 🧰 Development Environment 
 
 - **Node.js** / **Express**
 - **Supabase** (PostgreSQL)
@@ -44,7 +44,7 @@ SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_anon_key
 ```
 
-SQL script located here [sql/modulr_db.sql](sql/modulr_db.sql)
+#### SQL script located here [sql/modulr_db.sql](sql/modulr_db.sql)
 
 #### Open a directory in Command-Line and enter:
 ```bash
