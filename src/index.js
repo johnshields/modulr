@@ -10,7 +10,7 @@ const app = express();
 app.use(express.json());
 
 // Swagger API docs
-app.use('/api', swaggerUi.serve, (req, res, next) => swaggerUi.setup(swaggerDocument)(req, res, next));
+app.use('/api/swagger', swaggerUi.serve, (req, res, next) => swaggerUi.setup(swaggerDocument)(req, res, next));
 
 // Route setup
 app.use('/api/gear', gearRoutes);
