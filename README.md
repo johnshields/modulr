@@ -55,7 +55,7 @@ $ npm run dev
 ```
 
 * The API will listen on: http://localhost:8080/
-* View API Swagger docs: http://localhost:8080/api/
+* View API Swagger docs: http://localhost:8080/api/swagger
 
 📦 API Endpoints
 
