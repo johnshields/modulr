@@ -19,7 +19,7 @@ modulr/
 │ │ └── gearRoutes.js
 │ ├── services/
 │ │ └── supabaseClient.js
-│ └── index.js
+│ └── server.js
 ├── .env
 └── package.json
 ```

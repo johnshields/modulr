@@ -1,6 +1,6 @@
 ﻿openapi: 3.0.0
 info:
-  title: modulr API
+  title: modulrAPI
   version: 1.0.0
   description: A simple and scalable API for renting music gear. Built with Node.js, Express, and Supabase.
 servers:
