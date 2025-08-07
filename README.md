@@ -37,6 +37,11 @@ modulr/
 
 ### ⚙️ Setup & Run
 
+#### Open a directory in Command-Line and enter:
+```bash
+$ git clone https://github.com/johnshields/modulr.git
+```
+
 #### Create a .env file:
 
 ```
@@ -46,9 +51,9 @@ SUPABASE_KEY=your_supabase_anon_key
 
 #### SQL script located here [sql/modulr_db.sql](sql/modulr_db.sql)
 
-#### Open a directory in Command-Line and enter:
+#### Run API
+
 ```bash
-$ git clone https://github.com/johnshields/modulr.git
 $ cd modulr/
 $ npm install
 $ npm run dev
