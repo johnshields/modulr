@@ -1,6 +1,6 @@
 # modulr 🎛️
 
-A simple and scalable API for renting music gear. Built with **Node.js**, **Express**, and **Supabase**.
+A backend API for a mock rental service, built with Node.js and Supabase to simulate real-world workflows. Implements RESTful routes for gear management with PostgreSQL integration, structured using MVC patterns and tested with Postman.
 
 ## 🧰 Development Environment 
 
