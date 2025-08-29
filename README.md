@@ -49,7 +49,7 @@ SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_anon_key
 ```
 
-#### SQL script located here [sql/modulr_db.sql](sql/modulr_db.sql)
+#### SQL script located here [sql/modulr_db.sql](works/sql/modulr_db.sql)
 
 #### Run API
 

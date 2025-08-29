@@ -9,7 +9,7 @@ const handleError = (res, status, message) => {
 // Retrieve a list of all gear
 exports.getAllGear = async (req, res) => {
     const { data, error } = await supabase
-        .from('gear')
+        .from('mr_gear')
         .select('*');
 
     if (error) {
@@ -25,7 +25,7 @@ exports.getGearById = async (req, res) => {
     const { id } = req.params;
 
     const { data, error } = await supabase
-        .from('gear')
+        .from('mr_gear')
         .select('*')
         .eq('id', id)
         .single();
@@ -52,7 +52,7 @@ exports.addGear = async (req, res) => {
         }
 
         const { data, error } = await supabase
-            .from('gear')
+            .from('mr_gear')
             .insert([newGear])
             .select('*');
 
@@ -78,7 +78,7 @@ exports.updateGear = async (req, res) => {
     }
 
     const { data, error } = await supabase
-        .from('gear')
+        .from('mr_gear')
         .update({
             name: updatedData.name,
             category: updatedData.category,
@@ -106,7 +106,7 @@ exports.deleteGear = async (req, res) => {
     const { id } = req.params;
 
     const { data, error } = await supabase
-        .from('gear')
+        .from('mr_gear')
         .delete()
         .eq('id', id)
         .select();
