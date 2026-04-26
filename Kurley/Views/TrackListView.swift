@@ -118,8 +118,17 @@ struct TrackListView: View {
             TableColumn("Duration", value: \.duration) { t in Text(format(t.duration)) }
                 .width(min: 70, ideal: 80, max: 100)
 
-            TableColumn("Type", value: \.fileType) { t in Text(t.fileType) }
-                .width(min: 50, ideal: 60, max: 80)
+            TableColumn("Type", value: \.fileType) { t in
+                HStack(spacing: 6) {
+                    Text(t.fileType)
+                    if let kbps = t.bitrate {
+                        Text("\(kbps)")
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .width(min: 80, ideal: 100, max: 130)
         }
         .contextMenu(forSelectionType: Track.ID.self) { ids in
             if let id = ids.first, let t = sorted.first(where: { $0.id == id }) {

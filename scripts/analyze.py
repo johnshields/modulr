@@ -10,8 +10,6 @@ import re
 import shutil
 import sys
 
-import librosa
-import numpy as np
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TBPM, TKEY, APIC, error as ID3Error
 
@@ -50,6 +48,8 @@ MUSICAL = {
 
 
 def detect_keys_and_bpm(path):
+    import librosa
+    import numpy as np
     y, sr = librosa.load(path, sr=22050, mono=True, duration=180)
     tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
     bpm = float(np.atleast_1d(tempo)[0])
@@ -158,6 +158,55 @@ def has_both_tags(path):
         return False
 
 
+def normalise_musical(raw):
+    """Map any key form (Camelot, lowercase 'emin', 'amaj', 'Eb min', etc.)
+    to canonical short musical: 'Em', 'A', 'Bbm', 'F#m', 'Db'."""
+    if not raw: return None
+    s = raw.strip()
+    # Camelot wheel pass-through to musical
+    camelot_to_musical = {
+        "1A":"Abm","1B":"B","2A":"Ebm","2B":"F#",
+        "3A":"Bbm","3B":"Db","4A":"Fm","4B":"Ab",
+        "5A":"Cm","5B":"Eb","6A":"Gm","6B":"Bb",
+        "7A":"Dm","7B":"F","8A":"Am","8B":"C",
+        "9A":"Em","9B":"G","10A":"Bm","10B":"D",
+        "11A":"F#m","11B":"A","12A":"C#m","12B":"E",
+    }
+    if s.upper() in camelot_to_musical:
+        return camelot_to_musical[s.upper()]
+
+    # Parse pitch + accidental + mode
+    rest = s.replace(" ", "")
+    pitch = ""
+    if len(rest) >= 2 and rest[1] in ("#", "b", "B") and rest[0].isalpha():
+        # Treat second char as accidental: # or b
+        if rest[1] == "B" and rest[0].upper() in "ACDEFG":
+            # Could be 'Bb' meaning flat, but ambiguous with bare letter B + min suffix.
+            # Safest: only treat as accidental if next char isn't another letter.
+            third = rest[2:3]
+            if third.isalpha() and third.upper() != "M":
+                pitch = rest[0].upper()
+                rest = rest[1:]
+            else:
+                pitch = rest[0].upper() + "b"
+                rest = rest[2:]
+        else:
+            pitch = rest[0].upper() + ("#" if rest[1] == "#" else "b")
+            rest = rest[2:]
+    elif rest and rest[0].isalpha():
+        pitch = rest[0].upper()
+        rest = rest[1:]
+
+    if pitch == "" or pitch[0] not in "ABCDEFG":
+        return raw  # unparseable, return original
+
+    rest_lower = rest.lower()
+    is_minor = (rest_lower.startswith("min")
+                or rest_lower == "m"
+                or rest_lower.startswith("moll"))
+    return pitch + ("m" if is_minor else "")
+
+
 def read_tag_values(path):
     """Return (musical_key, bpm) from existing TKEY/TBPM tags or (None, None)."""
     try:
@@ -165,7 +214,8 @@ def read_tag_values(path):
         if audio.tags is None: return None, None
         key_tag = audio.tags.get("TKEY")
         bpm_tag = audio.tags.get("TBPM")
-        key = (key_tag.text[0] if key_tag else None) or None
+        raw_key = (key_tag.text[0] if key_tag else None) or None
+        key = normalise_musical(raw_key) if raw_key else None
         bpm = None
         if bpm_tag:
             try: bpm = int(bpm_tag.text[0])
@@ -189,6 +239,17 @@ def process_one(path, do_rename, idx=None, total=None, allow_skip=True, keep_num
         if existing_key and existing_bpm:
             musical = existing_key
             bpm = existing_bpm
+            # Rewrite TKEY in normalised form so next run reads it clean
+            try:
+                audio = MP3(path, ID3=ID3)
+                try: audio.add_tags()
+                except ID3Error: pass
+                current = audio.tags.get("TKEY")
+                if not current or (current.text and current.text[0] != musical):
+                    audio.tags.add(TKEY(encoding=3, text=musical))
+                    audio.save(v2_version=3)
+            except Exception:
+                pass
             print(f"SKIP: {filename} (already tagged) key={musical} bpm={bpm}", flush=True)
         else:
             print(f"SKIP: {filename} (already tagged)", flush=True)

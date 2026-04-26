@@ -23,6 +23,25 @@ enum MetadataReader {
         return nil
     }
 
+    /**
+     * Approximate bitrate in kbps. Tries AVAssetTrack.estimatedDataRate first,
+     * falls back to file size ÷ duration for VBR mp3s where AVFoundation reports 0.
+     */
+    static func bitrateKbps(_ asset: AVURLAsset) -> Int? {
+        if let track = asset.tracks(withMediaType: .audio).first {
+            let bps = track.estimatedDataRate
+            if bps > 0 { return Int((bps / 1000).rounded()) }
+        }
+        // Fallback: file size in bytes × 8 / duration in seconds, in kbps
+        let duration = CMTimeGetSeconds(asset.duration)
+        guard duration > 0 else { return nil }
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: asset.url.path),
+              let size = attrs[.size] as? NSNumber else { return nil }
+        let bps = Double(size.intValue) * 8.0 / duration
+        guard bps > 0 else { return nil }
+        return Int((bps / 1000).rounded())
+    }
+
     static func artist(_ asset: AVURLAsset) -> String? {
         for item in asset.metadata where item.commonKey == .commonKeyArtist {
             if let s = item.stringValue?.trimmingCharacters(in: .whitespaces), !s.isEmpty {

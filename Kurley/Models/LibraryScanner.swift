@@ -21,7 +21,8 @@ enum LibraryScanner {
                 artist: MetadataReader.artist(asset),
                 duration: CMTimeGetSeconds(asset.duration),
                 bpm: MetadataReader.bpm(asset),
-                key: MetadataReader.key(asset)
+                key: MetadataReader.key(asset),
+                bitrate: MetadataReader.bitrateKbps(asset)
             ))
         }
         return found

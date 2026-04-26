@@ -2,8 +2,11 @@ import SwiftUI
 
 struct AnalyzeSheet: View {
     @ObservedObject var analyzer: Analyzer
+    @EnvironmentObject var library: Library
     @Environment(\.dismiss) private var dismiss
     var onDone: () -> Void
+
+    @State private var lastRefreshLogCount = 0
 
     private static let accent = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
 
@@ -84,6 +87,7 @@ struct AnalyzeSheet: View {
             }
             ProgressView(value: analyzer.progress)
                 .progressViewStyle(.linear)
+                .animation(.easeOut(duration: 0.25), value: analyzer.progress)
         }
     }
 

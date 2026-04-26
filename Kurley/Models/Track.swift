@@ -8,9 +8,17 @@ struct Track: Identifiable, Hashable {
     var duration: TimeInterval
     var bpm: Int?
     var key: String?
+    var bitrate: Int?
     var tags: [String] = []
 
     var fileType: String { url.pathExtension.uppercased() }
+    var typeAndBitrate: String {
+        guard let kbps = bitrate else { return fileType }
+        return "\(fileType) · \(kbps)"
+    }
+    var bitrateDisplay: String {
+        bitrate.map { "\($0) kbps" } ?? "—"
+    }
     var bpmSort: Int { bpm ?? 0 }
     var bpmDisplay: String { bpm.map(String.init) ?? "—" }
     var keyDisplay: String {
