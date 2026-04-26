@@ -175,7 +175,7 @@ def process_one(path, do_rename, idx=None, total=None, allow_skip=True):
             print(f"RENAMED: {filename} -> {new_name}", flush=True)
 
 
-def reset_one(path, idx=None, total=None):
+def reset_one(path, idx=None, total=None, keep_numbers=False):
     filename = os.path.basename(path)
     if idx is not None:
         print(f"PROGRESS: {idx}/{total} {filename}", flush=True)
@@ -183,6 +183,10 @@ def reset_one(path, idx=None, total=None):
     if not stem:
         print(f"SKIP: {filename} (empty stem)", flush=True)
         return
+    if keep_numbers:
+        m = re.match(r"^(\d{2,4}_)", filename)
+        if m:
+            stem = m.group(1) + stem
     new_name = f"{stem}.mp3"
     new_path = os.path.join(os.path.dirname(path), new_name)
     if new_path == path:
@@ -235,6 +239,34 @@ def set_tags(path, kvs):
     print(f"TAGS_SET: {os.path.basename(path)}", flush=True)
 
 
+def set_tag(path, frame, value):
+    """Set a single ID3 frame, preserving all others (including artwork)."""
+    from mutagen.id3 import TALB, TCON, TDRC
+    frame_map = {
+        "title": TIT2, "artist": TPE1, "album": TALB,
+        "genre": TCON, "bpm": TBPM, "year": TDRC, "key": TKEY
+    }
+    cls = frame_map.get(frame)
+    if cls is None:
+        print(f"ERROR: unknown frame {frame}", flush=True)
+        return
+    try:
+        audio = MP3(path, ID3=ID3)
+    except Exception as e:
+        print(f"ERROR: {e}", flush=True)
+        return
+    try:
+        audio.add_tags()
+    except ID3Error:
+        pass
+    if value == "":
+        audio.tags.delall(cls.__name__)
+    else:
+        audio.tags.add(cls(encoding=3, text=str(value)))
+    audio.save(v2_version=3)
+    print(f"TAG_SET: {os.path.basename(path)} {frame}={value}", flush=True)
+
+
 def set_artwork(path, image_path, mime):
     """Replace artwork. image_path can be /dev/stdin to read from stdin."""
     try:
@@ -277,8 +309,12 @@ def main():
     p.add_argument("--rename", action="store_true")
     p.add_argument("--reset", action="store_true",
                    help="Strip _KEY_BPM and NNN_ from filenames, do not analyze")
+    p.add_argument("--keep-numbers", action="store_true",
+                   help="With --reset, preserve existing NNN_ prefix")
     p.add_argument("--set-title", nargs=2, metavar=("PATH", "TITLE"),
                    help="Set TIT2 only, preserving all other frames including artwork")
+    p.add_argument("--set-tag", nargs=3, metavar=("PATH", "FRAME", "VALUE"),
+                   help="Set a single ID3 frame (title|artist|album|genre|bpm|year|key) preserving others")
     p.add_argument("--set-artwork", nargs=3, metavar=("PATH", "IMAGE", "MIME"),
                    help="Replace APIC artwork. IMAGE can be /dev/stdin")
     p.add_argument("--remove-artwork", metavar="PATH",
@@ -287,6 +323,9 @@ def main():
 
     if args.set_title:
         set_title(args.set_title[0], args.set_title[1])
+        return
+    if args.set_tag:
+        set_tag(args.set_tag[0], args.set_tag[1], args.set_tag[2])
         return
     if args.set_artwork:
         set_artwork(args.set_artwork[0], args.set_artwork[1], args.set_artwork[2])
@@ -297,7 +336,7 @@ def main():
 
     if args.reset:
         if args.file:
-            reset_one(args.file)
+            reset_one(args.file, keep_numbers=args.keep_numbers)
             return
         if not args.folder:
             print("ERROR: --reset needs --folder or --file", flush=True)
@@ -309,7 +348,7 @@ def main():
         )
         print(f"TOTAL: {len(files)}", flush=True)
         for i, path in enumerate(files, 1):
-            reset_one(path, idx=i, total=len(files))
+            reset_one(path, idx=i, total=len(files), keep_numbers=args.keep_numbers)
         print("DONE", flush=True)
         return
 

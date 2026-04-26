@@ -2,7 +2,7 @@ import Foundation
 
 struct Track: Identifiable, Hashable {
     let id = UUID()
-    let url: URL
+    var url: URL
     var title: String
     var artist: String?
     var duration: TimeInterval
@@ -20,4 +20,25 @@ struct Track: Identifiable, Hashable {
     var keySort: String { key ?? "" }
     var artistDisplay: String { artist ?? "—" }
     var artistSort: String { artist ?? "" }
+
+    /**
+     * Returns a copy of self with selected fields replaced. Preserves id.
+     */
+    func with(
+        url: URL? = nil,
+        title: String? = nil,
+        artist: String?? = nil,
+        duration: TimeInterval? = nil,
+        bpm: Int?? = nil,
+        key: String?? = nil
+    ) -> Track {
+        var copy = self
+        if let url { copy.url = url }
+        if let title { copy.title = title }
+        if case let .some(value) = artist { copy.artist = value }
+        if let duration { copy.duration = duration }
+        if case let .some(value) = bpm { copy.bpm = value }
+        if case let .some(value) = key { copy.key = value }
+        return copy
+    }
 }

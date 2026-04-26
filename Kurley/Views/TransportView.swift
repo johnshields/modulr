@@ -62,10 +62,17 @@ struct TransportView: View {
                 Section("Cleanup") {
                     Button {
                         guard let cur = library.currentFolder else { return }
-                        analyzer.resetFolder(cur) {}
+                        analyzer.resetFolder(cur, keepNumbers: false) {}
                         showAnalyze = true
                     } label: {
-                        Label("Reset Names in Folder", systemImage: "arrow.counterclockwise")
+                        Label("Reset Names (clean)", systemImage: "arrow.counterclockwise")
+                    }
+                    Button {
+                        guard let cur = library.currentFolder else { return }
+                        analyzer.resetFolder(cur, keepNumbers: true) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Reset Names (keep order)", systemImage: "list.number")
                     }
                     .disabled(library.currentFolder == nil)
                 }

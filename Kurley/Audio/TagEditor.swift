@@ -1,10 +1,6 @@
 import Foundation
 import ID3TagEditor
 
-/**
- * TagEditor
- * Read and write ID3 tags on mp3 files
- */
 struct TrackMeta: Equatable {
     var title: String = ""
     var artist: String = ""
@@ -19,7 +15,12 @@ enum TagEditorError: Error {
     case writeFail
 }
 
-enum TagIO {
+/**
+ * TagService
+ * Reads ID3 tags via ID3TagEditor.
+ * Writes via Python/mutagen so artwork and other frames are preserved.
+ */
+enum TagService {
     static func isMP3(_ url: URL) -> Bool {
         url.pathExtension.lowercased() == "mp3"
     }
@@ -42,47 +43,48 @@ enum TagIO {
 
     static func write(_ meta: TrackMeta, to url: URL) throws {
         guard isMP3(url) else { throw TagEditorError.unsupportedFormat }
-        let editor = ID3TagEditor()
-        let builder = ID32v3TagBuilder()
+        if !meta.title.isEmpty { setTitle(url, title: meta.title) }
+        if !meta.artist.isEmpty { setTag(url, frame: "artist", value: meta.artist) }
+        if !meta.album.isEmpty { setTag(url, frame: "album", value: meta.album) }
+        if !meta.genre.isEmpty { setTag(url, frame: "genre", value: meta.genre) }
+        if let bpm = meta.bpm { setTag(url, frame: "bpm", value: String(bpm)) }
+        if let year = meta.year { setTag(url, frame: "year", value: String(year)) }
+    }
 
-        if !meta.title.isEmpty {
-            _ = builder.title(frame: ID3FrameWithStringContent(content: meta.title))
-        }
-        if !meta.artist.isEmpty {
-            _ = builder.artist(frame: ID3FrameWithStringContent(content: meta.artist))
-        }
-        if !meta.album.isEmpty {
-            _ = builder.album(frame: ID3FrameWithStringContent(content: meta.album))
-        }
-        if !meta.genre.isEmpty {
-            _ = builder.genre(frame: ID3FrameGenre(genre: nil, description: meta.genre))
-        }
-        if let bpm = meta.bpm {
-            _ = builder.beatsPerMinute(frame: ID3FrameWithIntegerContent(value: bpm))
-        }
-        if let year = meta.year {
-            _ = builder.recordingYear(frame: ID3FrameWithIntegerContent(value: year))
-        }
+    static func setTitle(_ url: URL, title: String) {
+        PythonRunner.shared.runSync(["--set-title", url.path, title])
+    }
 
-        let tag = builder.build()
-        do {
-            try editor.write(tag: tag, to: url.path)
-        } catch {
-            throw TagEditorError.writeFail
-        }
+    static func setArtwork(_ url: URL, imageData: Data, mime: String) {
+        PythonRunner.shared.runSync(["--set-artwork", url.path, "/dev/stdin", mime], stdin: imageData)
+    }
+
+    static func removeArtwork(_ url: URL) {
+        PythonRunner.shared.runSync(["--remove-artwork", url.path])
     }
 
     /**
-     * Rename file on disk. Returns new URL
+     * Rename file on disk. Returns new URL.
      */
     static func rename(_ url: URL, to newBaseName: String) throws -> URL {
         let trimmed = newBaseName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return url }
         let dir = url.deletingLastPathComponent()
-        let ext = url.pathExtension
-        let newURL = dir.appendingPathComponent(trimmed).appendingPathExtension(ext)
+        let newURL = dir.appendingPathComponent(trimmed).appendingPathExtension(url.pathExtension)
         if newURL == url { return url }
         try FileManager.default.moveItem(at: url, to: newURL)
         return newURL
     }
+
+    /**
+     * Per-frame setter via Python/mutagen — preserves all other frames including artwork.
+     */
+    private static func setTag(_ url: URL, frame: String, value: String) {
+        PythonRunner.shared.runSync(["--set-tag", url.path, frame, value])
+    }
 }
+
+/**
+ * Backwards-compat alias so older call sites still compile.
+ */
+typealias TagIO = TagService
