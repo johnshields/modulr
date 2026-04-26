@@ -63,6 +63,7 @@ struct TagEditSheet: View {
         }
         .padding(20)
         .frame(width: 540)
+        .tint(Theme.accent)
         .task {
             guard !loaded else { return }
             loaded = true
@@ -129,6 +130,7 @@ struct RenameSheet: View {
         }
         .padding(20)
         .frame(width: 420)
+        .tint(Theme.accent)
         .onAppear { name = track.url.deletingPathExtension().lastPathComponent }
     }
 

@@ -1,6 +1,10 @@
 import SwiftUI
 import AppKit
 
+private enum SpacebarMonitorState {
+    static var installed = false
+}
+
 struct ContentView: View {
     @EnvironmentObject var player: AudioPlayer
     @StateObject private var library = Library()
@@ -43,6 +47,7 @@ struct ContentView: View {
         .navigationTitle(windowTitle)
         .onAppear {
             NowPlaying.shared.setup(player: player, onNext: nextTrack, onPrev: prevTrack)
+            installSpacebarMonitor(player: player)
         }
         .onChange(of: player.currentURL) { _, url in
             updateNowPlaying(url: url)
@@ -85,6 +90,22 @@ struct ContentView: View {
         }
         player.load(next.url)
         player.play()
+    }
+
+    private func installSpacebarMonitor(player: AudioPlayer) {
+        if SpacebarMonitorState.installed { return }
+        SpacebarMonitorState.installed = true
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak player] event in
+            guard event.keyCode == 49 else { return event }
+            // Let text fields receive space normally
+            if let resp = NSApp.keyWindow?.firstResponder,
+               resp is NSText || resp is NSTextView ||
+               (resp as? NSView)?.className.contains("Text") == true {
+                return event
+            }
+            player?.toggle()
+            return nil
+        }
     }
 
     private func prevTrack() {
