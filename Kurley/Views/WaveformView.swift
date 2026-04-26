@@ -58,6 +58,14 @@ struct WaveformView: View {
             peaks = await p
             artwork = await a
         }
+        .onReceive(NotificationCenter.default.publisher(for: .artworkChanged)) { note in
+            guard let changed = note.object as? URL, changed == player.currentURL else { return }
+            if let data = note.userInfo?["data"] as? Data, let img = NSImage(data: data) {
+                artwork = img
+            } else {
+                artwork = nil
+            }
+        }
     }
 
     @ViewBuilder

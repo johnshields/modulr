@@ -9,7 +9,6 @@ struct TrackListView: View {
 
     @State private var selection: Track.ID?
     @State private var sortOrder: [KeyPathComparator<Track>] = [.init(\.title)]
-    @State private var renameTrack: Track?
     @State private var tagTrack: Track?
     @State private var deleteTrack: Track?
 
@@ -28,7 +27,6 @@ struct TrackListView: View {
             if editMode { editBody } else { tableBody }
         }
         .tint(Self.accent)
-        .sheet(item: $renameTrack) { t in RenameSheet(track: t).environmentObject(library) }
         .sheet(item: $tagTrack) { t in TagEditSheet(track: t).environmentObject(library) }
         .sheet(item: $deleteTrack) { t in
             DeleteSheet(
@@ -178,8 +176,7 @@ struct TrackListView: View {
     @ViewBuilder
     private func menu(for t: Track) -> some View {
         Button { play(t) } label: { Label("Play", systemImage: "play.fill") }
-        Button { renameTrack = t } label: { Label("Rename…", systemImage: "pencil") }
-        Button { tagTrack = t } label: { Label("Edit Tags…", systemImage: "tag") }
+        Button { tagTrack = t } label: { Label("Edit Track Info…", systemImage: "info.circle") }
             .disabled(!TagIO.isMP3(t.url))
         Button {
             analyzer.analyzeFile(t.url) {}

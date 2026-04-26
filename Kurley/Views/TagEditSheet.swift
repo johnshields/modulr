@@ -13,10 +13,11 @@ struct TagEditSheet: View {
     @State private var error: String?
     @State private var loaded = false
     @State private var artwork: NSImage?
+    @State private var showFinder = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Edit Tags").font(.headline)
+            Text("Track Info").font(.headline)
             Text(track.url.lastPathComponent).font(.caption).foregroundStyle(.secondary)
 
             HStack(alignment: .top, spacing: 16) {
@@ -36,6 +37,7 @@ struct TagEditSheet: View {
                     .frame(width: 120, height: 120)
                     HStack(spacing: 6) {
                         Button("Replace…") { pickArtwork() }
+                        Button("Find") { showFinder = true }
                         Button("Remove") { removeArt() }.disabled(artwork == nil)
                     }
                     .controlSize(.small)
@@ -64,6 +66,12 @@ struct TagEditSheet: View {
         .padding(20)
         .frame(width: 540)
         .tint(Theme.accent)
+        .sheet(isPresented: $showFinder) {
+            ArtworkFinderSheet(track: track) { data, mime in
+                library.setArtwork(track.url, imageData: data, mime: mime)
+                if let img = NSImage(data: data) { artwork = img }
+            }
+        }
         .task {
             guard !loaded else { return }
             loaded = true

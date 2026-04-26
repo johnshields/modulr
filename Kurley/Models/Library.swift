@@ -7,6 +7,10 @@ import Combine
  * Holds the current track list, favourites, recents.
  * Mutations route through TagService for tag/file ops; persistence delegated to RecentsStore.
  */
+extension Notification.Name {
+    static let artworkChanged = Notification.Name("kurley.artworkChanged")
+}
+
 final class Library: ObservableObject {
     @Published var tracks: [Track] = []
     @Published var favorites: Set<UUID> = []
@@ -78,16 +82,16 @@ final class Library: ObservableObject {
 
     /**
      * Set/replace artwork on mp3 (preserves all other frames).
+     * Posts ArtworkChanged so observing views can refresh.
      */
     func setArtwork(_ url: URL, imageData: Data, mime: String) {
         TagService.setArtwork(url, imageData: imageData, mime: mime)
+        NotificationCenter.default.post(name: .artworkChanged, object: url, userInfo: ["data": imageData])
     }
 
-    /**
-     * Remove artwork from mp3.
-     */
     func removeArtwork(_ url: URL) {
         TagService.removeArtwork(url)
+        NotificationCenter.default.post(name: .artworkChanged, object: url)
     }
 
     /**
