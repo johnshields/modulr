@@ -49,12 +49,24 @@ struct ContentView: View {
             NowPlaying.shared.setup(player: player, onNext: nextTrack, onPrev: prevTrack)
             installSpacebarMonitor(player: player)
         }
+        .onOpenURL { url in
+            handleOpenedFile(url)
+        }
         .onChange(of: player.currentURL) { _, url in
             updateNowPlaying(url: url)
         }
         .onChange(of: player.isPlaying) { _, _ in
             NowPlaying.shared.updatePlaybackState()
         }
+    }
+
+    private func handleOpenedFile(_ url: URL) {
+        let folder = url.deletingLastPathComponent()
+        if library.currentFolder != folder {
+            library.openFolder(folder)
+        }
+        player.load(url)
+        player.play()
     }
 
     private func updateNowPlaying(url: URL?) {

@@ -26,10 +26,12 @@ struct PitchPanel: View {
     var body: some View {
         Label(summary, systemImage: "metronome")
             .labelStyle(.titleAndIcon)
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(.white)
             .padding(.horizontal, 10).padding(.vertical, 5)
             .background(Color.white.opacity(0.08))
             .cornerRadius(6)
-            .help("Track BPM and key")
+            .help("Track BPM and key — \(summary)")
     }
 }

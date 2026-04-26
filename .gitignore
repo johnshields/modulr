@@ -3,6 +3,9 @@
 .AppleDouble
 .LSOverride
 Icon?
+*.app
+*.dmg
+.Trashes
 
 # Xcode
 xcuserdata/
@@ -19,26 +22,45 @@ DerivedData/
 Package.resolved
 *.xcodeproj
 
-# Generated app + icons
+# Generated app + icons + iconset
 Kurley/Resources/Kurley.icns
+Kurley/Resources/*.iconset/
 .build/Kurley.app/
 
 # Environment
 .env
 .env.local
 *.pem
+*.p12
+*.cer
+*.mobileprovision
 
 # Editor / IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*.bak
 
 # Project-specific
 temp/
 *.log
+*.pid
 
 # Python (analyze.py runtime)
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 .venv/
+venv/
+.python-version
+
+# Test artefacts
+coverage/
+*.profraw
+*.profdata
+
+# OS / system
+.Spotlight-V100
+.fseventsd

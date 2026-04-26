@@ -14,20 +14,39 @@ struct TransportView: View {
     }
 
     @State private var autoPlay = true
+    @State private var isCompact = false
 
     private func chip(_ label: String, system: String, on: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(label, systemImage: system)
-                .labelStyle(.titleAndIcon)
-                .foregroundStyle(on ? .white : .white.opacity(0.6))
+            Group {
+                if isCompact {
+                    Image(systemName: system)
+                } else {
+                    Label(label, systemImage: system)
+                        .labelStyle(.titleAndIcon)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+            }
+            .foregroundStyle(on ? .white : .white.opacity(0.6))
         }
         .buttonStyle(.borderless)
         .padding(.horizontal, 10).padding(.vertical, 5)
         .background(on ? Self.accent.opacity(0.85) : Color.white.opacity(0.08))
         .cornerRadius(6)
+        .help(label)
     }
 
     var body: some View {
+        GeometryReader { geo in
+            content
+                .onAppear { isCompact = geo.size.width < 760 }
+                .onChange(of: geo.size.width) { _, w in isCompact = w < 760 }
+        }
+        .frame(height: 44)
+    }
+
+    private var content: some View {
         HStack(spacing: 12) {
             chip("AutoPlay", system: "play.circle", on: autoPlay) { autoPlay.toggle() }
             chip("Shuffle", system: "shuffle", on: player.isShuffled) { player.isShuffled.toggle() }
@@ -81,8 +100,15 @@ struct TransportView: View {
                     .disabled(library.currentFolder == nil)
                 }
             } label: {
-                Label("Analyse", systemImage: "waveform.badge.magnifyingglass")
-                    .foregroundStyle(.white)
+                Group {
+                    if isCompact {
+                        Image(systemName: "waveform.badge.magnifyingglass")
+                    } else {
+                        Label("Analyse", systemImage: "waveform.badge.magnifyingglass")
+                            .lineLimit(1).fixedSize()
+                    }
+                }
+                .foregroundStyle(.white)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.visible)
@@ -94,6 +120,7 @@ struct TransportView: View {
                     .stroke(Self.accent.opacity(0.5), lineWidth: 1)
             )
             .cornerRadius(6)
+            .help("Analyse")
 
             Menu {
                 Section("Current Track") {
@@ -133,8 +160,15 @@ struct TransportView: View {
                     .disabled(library.currentFolder == nil)
                 }
             } label: {
-                Label("Loudness", systemImage: "speaker.wave.2.fill")
-                    .foregroundStyle(.white)
+                Group {
+                    if isCompact {
+                        Image(systemName: "speaker.wave.2.fill")
+                    } else {
+                        Label("Loudness", systemImage: "speaker.wave.2.fill")
+                            .lineLimit(1).fixedSize()
+                    }
+                }
+                .foregroundStyle(.white)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.visible)
@@ -142,6 +176,7 @@ struct TransportView: View {
             .padding(.horizontal, 10).padding(.vertical, 5)
             .background(Color.white.opacity(0.08))
             .cornerRadius(6)
+            .help("Loudness")
 
             PitchPanel(player: player, showAnalyzeSheet: $showAnalyze)
 

@@ -26,12 +26,37 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key><string>Audio File</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>public.mp3</string>
+        <string>public.mpeg-4-audio</string>
+        <string>com.apple.m4a-audio</string>
+        <string>public.aiff-audio</string>
+        <string>com.microsoft.waveform-audio</string>
+        <string>public.aac-audio</string>
+        <string>org.xiph.flac</string>
+        <string>public.audio</string>
+      </array>
+    </dict>
+  </array>
 </dict>
 </plist>
 EOF
+# Strip quarantine + ad-hoc sign so Gatekeeper trusts the app for handling files.
+xattr -cr "$APP" 2>/dev/null || true
+codesign --force --deep --sign - "$APP" 2>/dev/null || true
+
 if [ "$1" = "--install" ]; then
   rm -rf /Applications/Kurley.app
   cp -R "$APP" /Applications/Kurley.app
+  xattr -cr /Applications/Kurley.app 2>/dev/null || true
+  codesign --force --deep --sign - /Applications/Kurley.app 2>/dev/null || true
   open /Applications/Kurley.app
 else
   open "$APP"
