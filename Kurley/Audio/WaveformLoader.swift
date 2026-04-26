@@ -6,7 +6,7 @@ import AVFoundation
  * Reads audio file and returns downsampled peak array for waveform render
  */
 enum WaveformLoader {
-    static func peaks(from url: URL, targetCount: Int = 800) async -> [Float] {
+    static func peaks(from url: URL, targetCount: Int = 6000) async -> [Float] {
         guard let file = try? AVAudioFile(forReading: url) else { return [] }
         let format = file.processingFormat
         let frameCount = AVAudioFrameCount(file.length)

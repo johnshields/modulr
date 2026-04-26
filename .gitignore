@@ -1,9 +1,44 @@
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Xcode
 xcuserdata/
 *.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcscmblueprint
+*.xccheckout
 build/
 DerivedData/
+
+# Swift Package Manager
+.build/
 .swiftpm/
 Package.resolved
-*.xcworkspace/xcuserdata/
+*.xcodeproj
+
+# Generated app + icons
+Kurley/Resources/Kurley.icns
+.build/Kurley.app/
+
+# Environment
+.env
+.env.local
+*.pem
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project-specific
 temp/
+*.log
+
+# Python (analyze.py runtime)
+__pycache__/
+*.pyc
+.venv/

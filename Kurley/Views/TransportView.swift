@@ -2,33 +2,102 @@ import SwiftUI
 
 struct TransportView: View {
     @EnvironmentObject var player: AudioPlayer
+    @EnvironmentObject var library: Library
+    @EnvironmentObject var analyzer: Analyzer
+    @Binding var showAnalyze: Bool
 
-    var body: some View {
-        HStack(spacing: 16) {
-            Toggle("AutoPlay", isOn: .constant(true)).toggleStyle(.switch)
-            Toggle("Mute", isOn: $player.isMuted).toggleStyle(.switch)
-            Toggle("Shuffle", isOn: $player.isShuffled).toggleStyle(.switch)
+    private static let accent = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
 
-            Spacer()
+    private var currentMP3: URL? {
+        guard let u = player.currentURL, TagIO.isMP3(u) else { return nil }
+        return u
+    }
 
-            Button(action: {}) { Image(systemName: "backward.end.fill") }
-            Button(action: {}) { Image(systemName: "backward.fill") }
-            Button(action: player.stop) { Image(systemName: "stop.fill") }
-            Button(action: player.toggle) {
-                Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.title2)
-            }
-            Button(action: {}) { Image(systemName: "forward.fill") }
-            Button(action: {}) { Image(systemName: "forward.end.fill") }
+    @State private var autoPlay = true
 
-            Spacer()
-
-            VStack {
-                Text("Volume").font(.caption2)
-                Slider(value: $player.volume, in: 0...1).frame(width: 100)
-            }
+    private func chip(_ label: String, system: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(label, systemImage: system)
+                .labelStyle(.titleAndIcon)
+                .foregroundStyle(on ? .white : .white.opacity(0.6))
         }
         .buttonStyle(.borderless)
-        .padding(12)
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .background(on ? Self.accent.opacity(0.85) : Color.white.opacity(0.08))
+        .cornerRadius(6)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            chip("AutoPlay", system: "play.circle", on: autoPlay) { autoPlay.toggle() }
+            chip("Shuffle", system: "shuffle", on: player.isShuffled) { player.isShuffled.toggle() }
+
+            Menu {
+                Section("Analyze") {
+                    Button {
+                        guard let u = currentMP3 else { return }
+                        analyzer.analyzeFile(u, rename: analyzer.renameAfter) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Current Track", systemImage: "music.note")
+                    }
+                    .disabled(currentMP3 == nil)
+
+                    Button {
+                        guard let cur = library.currentFolder else { return }
+                        analyzer.analyzeFolder(cur, rename: analyzer.renameAfter) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Whole Folder", systemImage: "folder")
+                    }
+                    .disabled(library.currentFolder == nil)
+                }
+
+                Section("Options") {
+                    Toggle(isOn: $analyzer.renameAfter) {
+                        Label("Rename file after analyze", systemImage: "pencil.line")
+                    }
+                }
+
+                Section("Cleanup") {
+                    Button {
+                        guard let cur = library.currentFolder else { return }
+                        analyzer.resetFolder(cur) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Reset Names in Folder", systemImage: "arrow.counterclockwise")
+                    }
+                    .disabled(library.currentFolder == nil)
+                }
+            } label: {
+                Label("Analyze", systemImage: "waveform.badge.magnifyingglass")
+                    .foregroundStyle(.white)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.visible)
+            .fixedSize()
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(Self.accent.opacity(0.25))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Self.accent.opacity(0.5), lineWidth: 1)
+            )
+            .cornerRadius(6)
+
+            Spacer()
+
+            HStack(spacing: 8) {
+                Image(systemName: player.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                    .foregroundStyle(.white.opacity(0.7))
+                    .font(.caption)
+                Slider(value: $player.volume, in: 0...1)
+                    .frame(width: 110)
+            }
+        }
+        .foregroundStyle(.white)
+        .tint(Self.accent)
+        .buttonStyle(.borderless)
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Color.black.opacity(0.85))
     }
 }
