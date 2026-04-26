@@ -23,6 +23,14 @@ final class AudioPlayer: ObservableObject {
     @Published var volume: Float = 1.0 { didSet { engine.mainMixerNode.outputVolume = volume } }
     @Published var isShuffled = false
     @Published var isMuted = false { didSet { engine.mainMixerNode.outputVolume = isMuted ? 0 : volume } }
+    @Published var tempoRate: Float = 1.0 { didSet { applyRateAndPitch() } }
+    @Published var pitchCents: Float = 0.0 { didSet { applyRateAndPitch() } }
+    let pitchMode: PitchMode = .independent
+
+    enum PitchMode: String, CaseIterable {
+        case independent  // TimePitch — tempo + pitch independent
+        case vinyl        // Varispeed — coupled, more natural for small tempo nudges
+    }
 
     // Hot updates — own ObservableObject so they don't re-render the rest of the UI
     let monitor = PlaybackMonitor()
@@ -42,6 +50,8 @@ final class AudioPlayer: ObservableObject {
     private let engine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
     private let eq = AVAudioUnitEQ(numberOfBands: 10)
+    private let timePitch = AVAudioUnitTimePitch()
+    private let varispeed = AVAudioUnitVarispeed()
     private var audioFile: AVAudioFile?
     private var displayLink: Timer?
     private var seekOffset: TimeInterval = 0
@@ -49,10 +59,54 @@ final class AudioPlayer: ObservableObject {
     init() {
         engine.attach(playerNode)
         engine.attach(eq)
-        engine.connect(playerNode, to: eq, format: nil)
+        engine.attach(timePitch)
+        engine.attach(varispeed)
+        // Max overlap = best phase-vocoder quality, more CPU/latency
+        // Max overlap = best phase-vocoder quality (more CPU/latency)
+        timePitch.overlap = 32
+        // Force peak-locking on AUNewTimePitch for phase coherence.
+        // Param ID 3 = kNewTimePitchParam_EnablePeakLocking on AUNewTimePitch.
+        AudioUnitSetParameter(timePitch.audioUnit, 3, kAudioUnitScope_Global, 0, 1, 0)
+        engine.connect(playerNode, to: varispeed, format: nil)
+        engine.connect(varispeed, to: timePitch, format: nil)
+        engine.connect(timePitch, to: eq, format: nil)
         engine.connect(eq, to: engine.mainMixerNode, format: nil)
         installLevelTap()
         try? engine.start()
+    }
+
+    /**
+     * Route tempo/pitch through TimePitch (independent) or Varispeed (coupled).
+     * Vinyl mode gives more natural small adjustments; Independent for key changes
+     * decoupled from tempo.
+     */
+    /**
+     * Hybrid pipeline:
+     *   - varispeed handles the tempo change (vinyl quality, no vocoder)
+     *   - timePitch corrects the pitch back to the user's target
+     * Result: speeding up does not raise the key (and vice versa) but the
+     * tempo axis benefits from varispeed's smoother resampling.
+     */
+    private func applyRateAndPitch() {
+        let r = max(0.5, min(2.0, tempoRate))
+        let p = max(-2400, min(2400, pitchCents))
+        let varispeedPitchCents = Float(log2(Double(r)) * 1200)
+        varispeed.rate = r
+        timePitch.rate = 1.0
+        // Cancel the pitch lift from varispeed and apply the user's target pitch
+        timePitch.pitch = p - varispeedPitchCents
+    }
+
+    /**
+     * Shift pitch by integer semitones. 100 cents = 1 semitone.
+     */
+    func setPitchSemitones(_ semis: Int) {
+        pitchCents = Float(semis) * 100
+    }
+
+    func resetTempoAndPitch() {
+        tempoRate = 1.0
+        pitchCents = 0
     }
 
     /**
@@ -94,6 +148,7 @@ final class AudioPlayer: ObservableObject {
             duration = Double(file.length) / file.processingFormat.sampleRate
             seekOffset = 0
             currentTime = 0
+            resetTempoAndPitch()
             playerNode.stop()
             playerNode.scheduleFile(file, at: nil)
         } catch {

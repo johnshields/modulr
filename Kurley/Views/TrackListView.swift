@@ -16,6 +16,9 @@ struct TrackListView: View {
     @State private var editItems: [Track] = []
     @State private var dragID: UUID?
     @State private var padding: Int = 3
+    @State private var applying = false
+    @State private var applyProgress: (done: Int, total: Int) = (0, 0)
+    @State private var artCache: [URL: NSImage] = [:]
 
     private static let accent = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
 
@@ -69,10 +72,10 @@ struct TrackListView: View {
             Spacer()
 
             if editMode {
-                Button("Cancel") { editMode = false }
-                Button("Apply") { applyEdit() }
+                Button("Cancel") { editMode = false }.disabled(applying)
+                Button(applying ? "Applying…" : "Apply") { applyEdit() }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(editItems.isEmpty)
+                    .disabled(editItems.isEmpty || applying)
             } else {
                 Button {
                     editItems = sorted
@@ -130,31 +133,64 @@ struct TrackListView: View {
     }
 
     private var editBody: some View {
-        ScrollView {
-            LazyVStack(spacing: 2) {
-                ForEach(Array(editItems.enumerated()), id: \.element.id) { idx, t in
-                    editRow(idx: idx, t: t)
-                        .onDrag {
-                            dragID = t.id
-                            return NSItemProvider(object: t.id.uuidString as NSString)
-                        }
-                        .onDrop(of: [.text], delegate: RowDropDelegate(
-                            target: t, items: $editItems, dragID: $dragID
-                        ))
+        ZStack {
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(Array(editItems.enumerated()), id: \.element.id) { idx, t in
+                        editRow(idx: idx, t: t)
+                            .onDrag {
+                                dragID = t.id
+                                return NSItemProvider(object: t.id.uuidString as NSString)
+                            }
+                            .onDrop(of: [.text], delegate: RowDropDelegate(
+                                target: t, items: $editItems, dragID: $dragID
+                            ))
+                    }
                 }
+                .padding(8)
             }
-            .padding(8)
+            .background(Color.black.opacity(0.2))
+            .disabled(applying)
+            .opacity(applying ? 0.4 : 1)
+
+            if applying {
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .controlSize(.large)
+                    Text("Applying \(applyProgress.done) / \(applyProgress.total)")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.white)
+                }
+                .padding(24)
+                .background(.black.opacity(0.85))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
         }
-        .background(Color.black.opacity(0.2))
     }
 
     @ViewBuilder
     private func editRow(idx: Int, t: Track) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "line.3.horizontal").foregroundStyle(.secondary).frame(width: 16)
+            Image(systemName: "line.3.horizontal")
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+                .cursor(.openHand)
             Text(String(format: "%0\(padding)d", idx + 1))
                 .font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
                 .frame(minWidth: 44, alignment: .leading)
+            ZStack {
+                RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.4))
+                if let img = artCache[t.url] {
+                    Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                } else {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 36, height: 36)
+            .task { await loadArt(t.url) }
             VStack(alignment: .leading, spacing: 2) {
                 Text(t.title).lineLimit(1)
                 if let a = t.artist {
@@ -171,6 +207,7 @@ struct TrackListView: View {
                 .fill(dragID == t.id ? Self.accent.opacity(0.25) : Color.white.opacity(idx % 2 == 0 ? 0.04 : 0))
         )
         .opacity(dragID == t.id ? 0.5 : 1)
+        .cursor(dragID == t.id ? .closedHand : .openHand)
     }
 
     @ViewBuilder
@@ -196,6 +233,11 @@ struct TrackListView: View {
         onPlay(t.url)
     }
 
+    private func loadArt(_ url: URL) async {
+        guard artCache[url] == nil, let img = await ArtworkLoader.load(url) else { return }
+        artCache[url] = img
+    }
+
     private func deleteAndRenumber(_ t: Track) {
         let remainingIDs = sorted.filter { $0.id != t.id }.map(\.id)
         do {
@@ -207,8 +249,20 @@ struct TrackListView: View {
     }
 
     private func applyEdit() {
-        try? library.renumber(orderedIDs: editItems.map(\.id), padding: padding)
-        editMode = false
+        let ids = editItems.map(\.id)
+        let pad = padding
+        let lib = library
+        applyProgress = (0, ids.count)
+        applying = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            try? lib.renumber(orderedIDs: ids, padding: pad) { done, total in
+                DispatchQueue.main.async { applyProgress = (done, total) }
+            }
+            DispatchQueue.main.async {
+                applying = false
+                editMode = false
+            }
+        }
     }
 
     private struct DeleteSheet: View {

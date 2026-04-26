@@ -310,6 +310,93 @@ def sync_filename_to_tags(folder):
     print("DONE", flush=True)
 
 
+def apply_tweak(path, rate, cents, new_bpm=None, new_key=None):
+    """Bake tempo + pitch into the file via ffmpeg, update tags + filename.
+    rate: tempo multiplier (1.0 = no change)
+    cents: pitch shift in cents (100 = 1 semitone)
+    new_bpm/new_key: optional pre-computed values to write into tags + filename
+    """
+    import subprocess, tempfile
+    name = os.path.basename(path)
+    print(f"PROGRESS: 1/1 {name}", flush=True)
+    try:
+        ffmpeg = find_ffmpeg()
+    except FileNotFoundError as e:
+        print(f"ERROR: {e}", flush=True)
+        print("DONE", flush=True)
+        return
+
+    ext = os.path.splitext(path)[1].lower().lstrip(".")
+    codec = {"mp3": "libmp3lame", "m4a": "aac", "aac": "aac", "wav": "pcm_s16le"}.get(ext, "copy")
+
+    # Build filter chain. asetrate+aresample shifts pitch; atempo undoes the tempo side-effect.
+    # Then atempo applies the user's tempo rate on top.
+    sample_rate = 44100
+    pitch_factor = 2.0 ** (cents / 1200.0)
+    tempo_correction = 1.0 / pitch_factor  # to keep length same after pitch shift
+    final_tempo = rate * tempo_correction  # combined: pure tempo + correction
+
+    filters = [f"asetrate={int(sample_rate * pitch_factor)}",
+               f"aresample={sample_rate}"]
+    # atempo accepts 0.5..2.0 — chain if needed
+    t = final_tempo
+    while t < 0.5:
+        filters.append("atempo=0.5"); t /= 0.5
+    while t > 2.0:
+        filters.append("atempo=2.0"); t /= 2.0
+    if abs(t - 1.0) > 0.001:
+        filters.append(f"atempo={t:.4f}")
+    filter_chain = ",".join(filters)
+
+    tmp = tempfile.NamedTemporaryFile(suffix="." + ext, delete=False)
+    tmp.close()
+    cmd = [ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+           "-i", path, "-af", filter_chain,
+           "-c:a", codec, "-q:a", "0",
+           "-map_metadata", "0", "-id3v2_version", "3",
+           tmp.name]
+    print(f"BAKING: filter={filter_chain}", flush=True)
+    proc = subprocess.run(cmd, stderr=subprocess.PIPE)
+    if proc.returncode != 0:
+        try: os.unlink(tmp.name)
+        except Exception: pass
+        print(f"ERROR: ffmpeg failed: {proc.stderr.decode('utf-8', errors='ignore')[:200]}", flush=True)
+        print("DONE", flush=True)
+        return
+
+    # Replace original
+    shutil.move(tmp.name, path)
+
+    # Update tags
+    if path.lower().endswith(".mp3") and (new_bpm or new_key):
+        try:
+            audio = MP3(path, ID3=ID3)
+            try: audio.add_tags()
+            except ID3Error: pass
+            if new_bpm: audio.tags.add(TBPM(encoding=3, text=str(new_bpm)))
+            if new_key: audio.tags.add(TKEY(encoding=3, text=str(new_key)))
+            audio.save(v2_version=3)
+        except Exception as e:
+            print(f"ERROR: tag write: {e}", flush=True)
+
+    # Rename in DJ format: stem_KEY_BPM.mp3 (preserve NNN_ prefix if present)
+    if new_bpm and new_key:
+        stem = build_clean_stem(path, name)
+        new_filename = f"{stem}_{new_key}_{new_bpm}.mp3"
+        m = re.match(r"^(\d{2,4}_)", name)
+        if m and not new_filename.startswith(m.group(1)):
+            new_filename = m.group(1) + new_filename
+        new_path = os.path.join(os.path.dirname(path), new_filename)
+        if new_path != path and not os.path.exists(new_path):
+            if rename_and_sync_title(path, new_path):
+                print(f"RENAMED: {name} -> {new_filename}", flush=True)
+        else:
+            sync_title_to_filename(path)
+
+    print(f"APPLIED: {name}", flush=True)
+    print("DONE", flush=True)
+
+
 def normalize_file(path, apply=False):
     """Boost a single track to ~ -0.3 dBFS peak (max headroom-safe gain)."""
     name = os.path.basename(path)
@@ -562,6 +649,8 @@ def main():
                    help="With --normalize/--normalize-file, also re-encode to apply the gain")
     p.add_argument("--sync-filename", metavar="FOLDER",
                    help="Append _KEY_BPM to filenames using existing tags")
+    p.add_argument("--bake-tweak", nargs=5, metavar=("PATH", "RATE", "CENTS", "BPM", "KEY"),
+                   help="Bake tempo+pitch into a track, update tags, rename. Use - for missing BPM/KEY.")
     p.add_argument("--set-title", nargs=2, metavar=("PATH", "TITLE"),
                    help="Set TIT2 only, preserving all other frames including artwork")
     p.add_argument("--set-tag", nargs=3, metavar=("PATH", "FRAME", "VALUE"),
@@ -580,6 +669,16 @@ def main():
         return
     if args.sync_filename:
         sync_filename_to_tags(args.sync_filename)
+        return
+    if args.bake_tweak:
+        bk_path, rate_s, cents_s, bpm_s, key_s = args.bake_tweak
+        try: rate = float(rate_s)
+        except: rate = 1.0
+        try: cents = float(cents_s)
+        except: cents = 0.0
+        bpm = int(bpm_s) if bpm_s and bpm_s != "-" else None
+        key = key_s if key_s and key_s != "-" else None
+        apply_tweak(bk_path, rate, cents, new_bpm=bpm, new_key=key)
         return
     if args.set_title:
         set_title(args.set_title[0], args.set_title[1])

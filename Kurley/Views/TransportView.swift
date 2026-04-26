@@ -143,6 +143,8 @@ struct TransportView: View {
             .background(Color.white.opacity(0.08))
             .cornerRadius(6)
 
+            PitchPanel(player: player, showAnalyzeSheet: $showAnalyze)
+
             Spacer()
 
             HStack(spacing: 8) {

@@ -96,9 +96,11 @@ final class Library: ObservableObject {
 
     /**
      * Renumber files: prepend NNN_ prefix in given order, sync ID3 title to filename.
+     * Calls onProgress(done, total) after each file is processed.
      */
-    func renumber(orderedIDs: [UUID], padding: Int = 3) throws {
+    func renumber(orderedIDs: [UUID], padding: Int = 3, onProgress: ((Int, Int) -> Void)? = nil) throws {
         var updated: [Track] = tracks
+        let total = orderedIDs.count
         for (i, id) in orderedIDs.enumerated() {
             guard let idx = updated.firstIndex(where: { $0.id == id }) else { continue }
             let url = updated[idx].url
@@ -118,6 +120,7 @@ final class Library: ObservableObject {
             }
             if TagService.isMP3(newURL) { TagService.setTitle(newURL, title: newName) }
             updated[idx] = updated[idx].with(url: newURL, title: newName)
+            onProgress?(i + 1, total)
         }
         tracks = updated
     }

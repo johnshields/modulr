@@ -111,6 +111,18 @@ final class Analyzer: ObservableObject {
         run(args: ["--sync-filename", url.path], completion: completion)
     }
 
+    func bakeTweak(_ url: URL, rate: Float, cents: Float, bpm: Int?, key: String?, completion: @escaping () -> Void) {
+        mode = .normalize  // reuse loudness mode UI for now
+        let args = [
+            "--bake-tweak", url.path,
+            String(format: "%.4f", rate),
+            String(format: "%.1f", cents),
+            bpm.map(String.init) ?? "-",
+            key ?? "-"
+        ]
+        run(args: args, completion: completion)
+    }
+
     func cancel() {
         task?.terminate()
         task = nil
