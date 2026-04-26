@@ -181,7 +181,7 @@ struct TrackListView: View {
         Button {
             analyzer.analyzeFile(t.url) {}
             showAnalyze = true
-        } label: { Label("Analyze BPM/Key", systemImage: "waveform.badge.magnifyingglass") }
+        } label: { Label("Analyse BPM/Key", systemImage: "waveform.badge.magnifyingglass") }
             .disabled(!TagIO.isMP3(t.url))
         Divider()
         Button {

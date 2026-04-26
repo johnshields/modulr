@@ -33,7 +33,7 @@ struct TransportView: View {
             chip("Shuffle", system: "shuffle", on: player.isShuffled) { player.isShuffled.toggle() }
 
             Menu {
-                Section("Analyze") {
+                Section("Analyse") {
                     Button {
                         guard let u = currentMP3 else { return }
                         analyzer.analyzeFile(u, rename: analyzer.renameAfter) {}
@@ -55,8 +55,12 @@ struct TransportView: View {
 
                 Section("Options") {
                     Toggle(isOn: $analyzer.renameAfter) {
-                        Label("Rename file after analyze", systemImage: "pencil.line")
+                        Label("Rename file after analyse", systemImage: "pencil.line")
                     }
+                    Toggle(isOn: $analyzer.keepOrder) {
+                        Label("Keep order (NNN_ prefix)", systemImage: "list.number")
+                    }
+                    .disabled(!analyzer.renameAfter)
                 }
 
                 Section("Cleanup") {
@@ -77,7 +81,7 @@ struct TransportView: View {
                     .disabled(library.currentFolder == nil)
                 }
             } label: {
-                Label("Analyze", systemImage: "waveform.badge.magnifyingglass")
+                Label("Analyse", systemImage: "waveform.badge.magnifyingglass")
                     .foregroundStyle(.white)
             }
             .menuStyle(.borderlessButton)
@@ -89,6 +93,54 @@ struct TransportView: View {
                 RoundedRectangle(cornerRadius: 6)
                     .stroke(Self.accent.opacity(0.5), lineWidth: 1)
             )
+            .cornerRadius(6)
+
+            Menu {
+                Section("Current Track") {
+                    Button {
+                        guard let u = currentMP3 else { return }
+                        analyzer.normalizeFilePreview(u) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Preview Gain", systemImage: "eye")
+                    }
+                    .disabled(currentMP3 == nil)
+                    Button {
+                        guard let u = currentMP3 else { return }
+                        analyzer.normalizeFileApply(u) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Boost Safe", systemImage: "wand.and.stars")
+                    }
+                    .disabled(currentMP3 == nil)
+                }
+                Section("Whole Folder") {
+                    Button {
+                        guard let cur = library.currentFolder else { return }
+                        analyzer.normalizePreview(cur) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Preview Gain Plan", systemImage: "eye")
+                    }
+                    .disabled(library.currentFolder == nil)
+                    Button {
+                        guard let cur = library.currentFolder else { return }
+                        analyzer.normalizeApply(cur) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Match Loudest", systemImage: "wand.and.stars")
+                    }
+                    .disabled(library.currentFolder == nil)
+                }
+            } label: {
+                Label("Loudness", systemImage: "speaker.wave.2.fill")
+                    .foregroundStyle(.white)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.visible)
+            .fixedSize()
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(Color.white.opacity(0.08))
             .cornerRadius(6)
 
             Spacer()

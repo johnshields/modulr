@@ -7,15 +7,23 @@ struct AnalyzeSheet: View {
 
     private static let accent = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
 
-    private var stats: (analyzed: Int, skipped: Int, errors: Int, renamed: Int) {
-        var a = 0, s = 0, e = 0, r = 0
+    private struct Counts {
+        var analysed = 0, skipped = 0, errors = 0, renamed = 0
+        var measured = 0, applied = 0, planned = 0
+    }
+
+    private var counts: Counts {
+        var c = Counts()
         for line in analyzer.log {
-            if line.hasPrefix("RESULT:") { a += 1 }
-            else if line.hasPrefix("SKIP:") { s += 1 }
-            else if line.hasPrefix("ERROR:") { e += 1 }
-            else if line.hasPrefix("RENAMED:") { r += 1 }
+            if line.hasPrefix("RESULT:") { c.analysed += 1 }
+            else if line.hasPrefix("SKIP:") { c.skipped += 1 }
+            else if line.hasPrefix("ERROR:") { c.errors += 1 }
+            else if line.hasPrefix("RENAMED:") { c.renamed += 1 }
+            else if line.hasPrefix("MEASURE:") { c.measured += 1 }
+            else if line.hasPrefix("PLAN:") { c.planned += 1 }
+            else if line.hasPrefix("APPLIED:") { c.applied += 1 }
         }
-        return (a, s, e, r)
+        return c
     }
 
     private var lastResult: String? {
@@ -35,17 +43,26 @@ struct AnalyzeSheet: View {
         .tint(Theme.accent)
     }
 
+    private var headerIcon: String {
+        switch analyzer.mode {
+        case .normalize: return "speaker.wave.2.fill"
+        case .reset: return "arrow.counterclockwise"
+        case .syncFilename: return "doc.text"
+        default: return "waveform.badge.magnifyingglass"
+        }
+    }
+
     private var header: some View {
         HStack(spacing: 10) {
-            Image(systemName: analyzer.running ? "waveform.badge.magnifyingglass" : "checkmark.circle.fill")
+            Image(systemName: analyzer.running ? headerIcon : "checkmark.circle.fill")
                 .font(.title2)
                 .foregroundStyle(analyzer.running ? Self.accent : .green)
                 .symbolEffect(.pulse, isActive: analyzer.running)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(analyzer.running ? "Analysing" : "Done")
+                Text(analyzer.running ? analyzer.mode.title : "Done")
                     .font(.headline)
-                Text(analyzer.running ? "Detecting BPM and key per track" : "All tracks processed")
+                Text(analyzer.running ? analyzer.mode.subtitle : "Operation complete")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -70,12 +87,26 @@ struct AnalyzeSheet: View {
         }
     }
 
+    @ViewBuilder
     private var statsRow: some View {
+        let c = counts
         HStack(spacing: 8) {
-            chip("Analysed", count: stats.analyzed, color: Self.accent)
-            chip("Skipped", count: stats.skipped, color: .gray)
-            chip("Renamed", count: stats.renamed, color: .blue)
-            chip("Errors", count: stats.errors, color: .red)
+            switch analyzer.mode {
+            case .normalize:
+                chip("Measured", count: c.measured, color: .gray)
+                chip("Planned", count: c.planned, color: Self.accent)
+                chip("Applied", count: c.applied, color: .green)
+                chip("Errors", count: c.errors, color: .red)
+            case .reset, .syncFilename:
+                chip("Renamed", count: c.renamed, color: Self.accent)
+                chip("Skipped", count: c.skipped, color: .gray)
+                chip("Errors", count: c.errors, color: .red)
+            default:
+                chip("Analysed", count: c.analysed, color: Self.accent)
+                chip("Skipped", count: c.skipped, color: .gray)
+                chip("Renamed", count: c.renamed, color: .blue)
+                chip("Errors", count: c.errors, color: .red)
+            }
             Spacer()
         }
     }
@@ -145,7 +176,11 @@ struct AnalyzeSheet: View {
         if line.hasPrefix("ERROR:") { return .red }
         if line.hasPrefix("PROGRESS:") { return .yellow }
         if line.hasPrefix("TOTAL:") || line.hasPrefix("DONE") { return .green }
-        if line.hasPrefix("ARTWORK_SET:") || line.hasPrefix("TITLE_SET:") { return .cyan }
+        if line.hasPrefix("ARTWORK_SET:") || line.hasPrefix("TITLE_SET:") || line.hasPrefix("TAG_SET:") { return .cyan }
+        if line.hasPrefix("MEASURE:") { return .gray }
+        if line.hasPrefix("PLAN:") { return Self.accent }
+        if line.hasPrefix("APPLIED:") { return .green }
+        if line.hasPrefix("TARGET:") { return .orange }
         return .secondary
     }
 

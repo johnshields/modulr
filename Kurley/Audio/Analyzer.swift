@@ -6,44 +6,109 @@ import Combine
  * Owns analyze.py session state. Delegates subprocess plumbing to PythonRunner.
  */
 final class Analyzer: ObservableObject {
+    enum Mode: String {
+        case analyse, reset, normalize, syncFilename, idle
+
+        var title: String {
+            switch self {
+            case .analyse: return "Analysing"
+            case .reset: return "Resetting Names"
+            case .normalize: return "Matching Loudness"
+            case .syncFilename: return "Syncing Filenames"
+            case .idle: return "Working"
+            }
+        }
+
+        var subtitle: String {
+            switch self {
+            case .analyse: return "Detecting BPM and key per track"
+            case .reset: return "Stripping suffixes from filenames"
+            case .normalize: return "Measuring volume and applying gain"
+            case .syncFilename: return "Adding _KEY_BPM suffix from tags"
+            case .idle: return ""
+            }
+        }
+    }
+
     @Published var running = false
     @Published var current: String = ""
     @Published var progress: Double = 0
     @Published var log: [String] = []
+    @Published var mode: Mode = .idle
     @Published var renameAfter: Bool {
         didSet { defaults.set(renameAfter, forKey: kRename) }
+    }
+    @Published var keepOrder: Bool {
+        didSet { defaults.set(keepOrder, forKey: kKeepOrder) }
     }
 
     private var task: Process?
     private let defaults = UserDefaults.standard
     private let kRename = "kurley.renameAfter"
+    private let kKeepOrder = "kurley.keepOrder"
     private var totalCount: Double = 0
 
     init() {
         self.renameAfter = UserDefaults.standard.bool(forKey: "kurley.renameAfter")
+        self.keepOrder = UserDefaults.standard.bool(forKey: "kurley.keepOrder")
     }
 
     /**
      * Public entry points. `rename` only applies to analyse-mode invocations.
      */
     func analyzeFile(_ url: URL, rename: Bool = false, completion: @escaping () -> Void) {
-        run(args: ["--file", url.path] + (rename ? ["--rename"] : []), completion: completion)
+        mode = .analyse
+        var args = ["--file", url.path]
+        if rename { args.append("--rename") }
+        if rename && keepOrder { args.append("--keep-numbers") }
+        run(args: args, completion: completion)
     }
 
     func analyzeFolder(_ url: URL, rename: Bool = false, completion: @escaping () -> Void) {
-        run(args: ["--folder", url.path] + (rename ? ["--rename"] : []), completion: completion)
+        mode = .analyse
+        var args = ["--folder", url.path]
+        if rename { args.append("--rename") }
+        if rename && keepOrder { args.append("--keep-numbers") }
+        run(args: args, completion: completion)
     }
 
     func resetFolder(_ url: URL, keepNumbers: Bool = false, completion: @escaping () -> Void) {
+        mode = .reset
         var args = ["--folder", url.path, "--reset"]
         if keepNumbers { args.append("--keep-numbers") }
         run(args: args, completion: completion)
     }
 
     func resetFile(_ url: URL, keepNumbers: Bool = false, completion: @escaping () -> Void) {
+        mode = .reset
         var args = ["--file", url.path, "--reset"]
         if keepNumbers { args.append("--keep-numbers") }
         run(args: args, completion: completion)
+    }
+
+    func normalizePreview(_ url: URL, completion: @escaping () -> Void) {
+        mode = .normalize
+        run(args: ["--normalize", url.path], completion: completion)
+    }
+
+    func normalizeApply(_ url: URL, completion: @escaping () -> Void) {
+        mode = .normalize
+        run(args: ["--normalize", url.path, "--apply"], completion: completion)
+    }
+
+    func normalizeFilePreview(_ url: URL, completion: @escaping () -> Void) {
+        mode = .normalize
+        run(args: ["--normalize-file", url.path], completion: completion)
+    }
+
+    func normalizeFileApply(_ url: URL, completion: @escaping () -> Void) {
+        mode = .normalize
+        run(args: ["--normalize-file", url.path, "--apply"], completion: completion)
+    }
+
+    func syncFilenameToTags(_ url: URL, completion: @escaping () -> Void) {
+        mode = .syncFilename
+        run(args: ["--sync-filename", url.path], completion: completion)
     }
 
     func cancel() {

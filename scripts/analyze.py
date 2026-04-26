@@ -112,17 +112,10 @@ def slug(s):
 
 
 def build_clean_stem(path, filename):
-    """Build canonical stem (title only). Reads ID3 TIT2 if available, else parses filename."""
-    try:
-        audio = MP3(path, ID3=ID3)
-        if audio.tags:
-            title = (audio.tags.get("TIT2").text[0] if audio.tags.get("TIT2") else "").strip()
-            if title:
-                return slug(title)
-    except Exception:
-        pass
-
-    # Fallback: parse filename, strip NNN_ prefix, _KEY_BPM suffix, and trailing _artist
+    """Build canonical stem (title only).
+    Strips _KEY_BPM, NNN_ prefix, drops _artist segment, and removes any
+    tokens that match the TPE1 artist tag.
+    """
     stem = filename[:-4]
     parts = stem.split("_")
     while (len(parts) >= 3
@@ -131,8 +124,25 @@ def build_clean_stem(path, filename):
         parts = parts[:-2]
     if len(parts) >= 2 and re.match(r"^\d{2,3}$", parts[0]):
         parts = parts[1:]
-    # Take only first part (title), drop artist if present
-    return slug(parts[0]) if parts else ""
+    title_part = slug(parts[0]) if parts else ""
+
+    # Remove artist tokens if TPE1 known
+    try:
+        audio = MP3(path, ID3=ID3)
+        artist_tag = audio.tags.get("TPE1") if audio.tags else None
+        if artist_tag:
+            try: artist = artist_tag.text[0]
+            except Exception: artist = ""
+            if artist:
+                artist_tokens = set(t for t in re.split(r"[^a-z0-9]+", slug(artist)) if t)
+                if artist_tokens:
+                    tokens = re.split(r"[-_]+", title_part)
+                    kept = [t for t in tokens if t.lower() not in artist_tokens and t]
+                    cleaned = "-".join(kept)
+                    if cleaned: title_part = cleaned
+    except Exception:
+        pass
+    return title_part
 
 
 def has_both_tags(path):
@@ -148,31 +158,238 @@ def has_both_tags(path):
         return False
 
 
-def process_one(path, do_rename, idx=None, total=None, allow_skip=True):
+def read_tag_values(path):
+    """Return (musical_key, bpm) from existing TKEY/TBPM tags or (None, None)."""
+    try:
+        audio = MP3(path, ID3=ID3)
+        if audio.tags is None: return None, None
+        key_tag = audio.tags.get("TKEY")
+        bpm_tag = audio.tags.get("TBPM")
+        key = (key_tag.text[0] if key_tag else None) or None
+        bpm = None
+        if bpm_tag:
+            try: bpm = int(bpm_tag.text[0])
+            except Exception: pass
+        return key, bpm
+    except Exception:
+        return None, None
+
+
+def process_one(path, do_rename, idx=None, total=None, allow_skip=True, keep_numbers=False):
     filename = os.path.basename(path)
     if idx is not None:
         print(f"PROGRESS: {idx}/{total} {filename}", flush=True)
 
+    musical = None
+    bpm = None
+
     if allow_skip and has_both_tags(path):
-        print(f"SKIP: {filename} (already tagged)", flush=True)
-        return
+        # Skip detection, but still apply rename using existing tag values
+        existing_key, existing_bpm = read_tag_values(path)
+        if existing_key and existing_bpm:
+            musical = existing_key
+            bpm = existing_bpm
+            print(f"SKIP: {filename} (already tagged) key={musical} bpm={bpm}", flush=True)
+        else:
+            print(f"SKIP: {filename} (already tagged)", flush=True)
+            return
+    else:
+        try:
+            _, musical, bpm = detect_keys_and_bpm(path)
+        except Exception as e:
+            print(f"ERROR: {filename}: {e}", flush=True)
+            return
+        print(f"RESULT: {filename} key={musical} bpm={bpm}", flush=True)
+        write_tags(path, bpm, musical)
 
-    try:
-        camelot, musical, bpm = detect_keys_and_bpm(path)
-    except Exception as e:
-        print(f"ERROR: {filename}: {e}", flush=True)
-        return
-
-    print(f"RESULT: {filename} key={musical} ({camelot}) bpm={bpm}", flush=True)
-    write_tags(path, bpm, musical)
-
-    if do_rename:
+    if do_rename and musical is not None and bpm is not None:
         stem = build_clean_stem(path, filename)
         new_name = f"{stem}_{musical}_{bpm}.mp3"
+        if keep_numbers:
+            m = re.match(r"^(\d{2,4}_)", filename)
+            if m and not new_name.startswith(m.group(1)):
+                new_name = m.group(1) + new_name
         new_path = os.path.join(os.path.dirname(path), new_name)
-        if new_path != path:
-            shutil.move(path, new_path)
+        if new_path == path:
+            sync_title_to_filename(path)
+        elif rename_and_sync_title(path, new_path):
             print(f"RENAMED: {filename} -> {new_name}", flush=True)
+
+
+def find_ffmpeg():
+    """Locate ffmpeg binary. App-launched processes have minimal PATH."""
+    import shutil as _sh
+    if got := _sh.which("ffmpeg"): return got
+    for p in ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"]:
+        if os.path.exists(p): return p
+    raise FileNotFoundError("ffmpeg not found. Install via `brew install ffmpeg`.")
+
+
+def measure_volume(path):
+    """Return (mean_db, max_db) using ffmpeg volumedetect."""
+    import subprocess
+    ffmpeg = find_ffmpeg()
+    proc = subprocess.run(
+        [ffmpeg, "-hide_banner", "-nostats", "-i", path,
+         "-af", "volumedetect", "-f", "null", "-"],
+        stderr=subprocess.PIPE, stdout=subprocess.PIPE
+    )
+    text = proc.stderr.decode("utf-8", errors="ignore")
+    mean = None
+    peak = None
+    for line in text.splitlines():
+        if "mean_volume:" in line:
+            try: mean = float(line.split("mean_volume:")[1].strip().split()[0])
+            except Exception: pass
+        elif "max_volume:" in line:
+            try: peak = float(line.split("max_volume:")[1].strip().split()[0])
+            except Exception: pass
+    return mean, peak
+
+
+def apply_gain(path, gain_db):
+    """Re-encode file with volume filter. Replaces original via temp file."""
+    import subprocess, tempfile
+    ffmpeg = find_ffmpeg()
+    ext = os.path.splitext(path)[1].lower().lstrip(".")
+    codec = {"mp3": "libmp3lame", "m4a": "aac", "aac": "aac", "wav": "pcm_s16le"}.get(ext, "copy")
+    tmp = tempfile.NamedTemporaryFile(suffix="." + ext, delete=False)
+    tmp.close()
+    cmd = [ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+           "-i", path,
+           "-af", f"volume={gain_db}dB",
+           "-c:a", codec, "-q:a", "0",
+           "-map_metadata", "0", "-id3v2_version", "3",
+           tmp.name]
+    proc = subprocess.run(cmd, stderr=subprocess.PIPE)
+    if proc.returncode == 0:
+        shutil.move(tmp.name, path)
+        return True
+    try: os.unlink(tmp.name)
+    except Exception: pass
+    return False
+
+
+def sync_filename_to_tags(folder):
+    """For each track with TKEY+TBPM, ensure filename ends with _KEY_BPM."""
+    files = sorted(
+        os.path.join(folder, f)
+        for f in os.listdir(folder)
+        if f.lower().endswith(".mp3") and not f.startswith(".")
+    )
+    print(f"TOTAL: {len(files)}", flush=True)
+    for i, p in enumerate(files, 1):
+        name = os.path.basename(p)
+        print(f"PROGRESS: {i}/{len(files)} {name}", flush=True)
+        key, bpm = read_tag_values(p)
+        if not key or not bpm:
+            print(f"SKIP: {name} (missing tags)", flush=True)
+            continue
+        # Already has matching suffix?
+        stem_no_ext = name[:-4]
+        suffix = f"_{key}_{bpm}"
+        if stem_no_ext.lower().endswith(suffix.lower()):
+            print(f"OK: {name} (already has suffix)", flush=True)
+            continue
+        clean = build_clean_stem(p, name)
+        new_name = f"{clean}{suffix}.mp3"
+        # Preserve NNN_ prefix if original had one
+        m = re.match(r"^(\d{2,4}_)", name)
+        if m and not new_name.startswith(m.group(1)):
+            new_name = m.group(1) + new_name
+        new_path = os.path.join(os.path.dirname(p), new_name)
+        if new_path == p:
+            sync_title_to_filename(p)
+            print(f"OK: {name} (synced title)", flush=True)
+            continue
+        if os.path.exists(new_path):
+            print(f"SKIP: {name} -> {new_name} (collision)", flush=True)
+            continue
+        if rename_and_sync_title(p, new_path):
+            print(f"RENAMED: {name} -> {new_name}", flush=True)
+    print("DONE", flush=True)
+
+
+def normalize_file(path, apply=False):
+    """Boost a single track to ~ -0.3 dBFS peak (max headroom-safe gain)."""
+    name = os.path.basename(path)
+    print(f"PROGRESS: 1/1 {name}", flush=True)
+    try:
+        mean, peak = measure_volume(path)
+    except FileNotFoundError as e:
+        print(f"ERROR: {e}", flush=True)
+        print("DONE", flush=True)
+        return
+    if peak is None:
+        print(f"ERROR: {name}: could not measure", flush=True)
+        return
+    print(f"MEASURE: {name} mean={mean:.1f}dB peak={peak:.1f}dB", flush=True)
+    gain = max(0.0, -0.3 - peak)
+    if gain < 0.5:
+        print(f"PLAN: {name} gain=+0.0dB (already loud)", flush=True)
+        print("DONE", flush=True)
+        return
+    print(f"PLAN: {name} gain=+{gain:.1f}dB", flush=True)
+    if apply:
+        ok = apply_gain(path, gain)
+        print(f"{'APPLIED' if ok else 'ERROR'}: {name}", flush=True)
+    print("DONE", flush=True)
+
+
+def normalize_folder(folder, apply=False):
+    try:
+        find_ffmpeg()
+    except FileNotFoundError as e:
+        print(f"ERROR: {e}", flush=True)
+        print("DONE", flush=True)
+        return
+
+    files = sorted(
+        os.path.join(folder, f)
+        for f in os.listdir(folder)
+        if f.lower().endswith((".mp3", ".m4a", ".wav", ".aac")) and not f.startswith(".")
+    )
+    print(f"TOTAL: {len(files)}", flush=True)
+
+    # Phase 1: measure
+    measurements = []
+    for i, p in enumerate(files, 1):
+        name = os.path.basename(p)
+        print(f"PROGRESS: {i}/{len(files)} {name}", flush=True)
+        mean, peak = measure_volume(p)
+        if peak is None:
+            print(f"ERROR: {name}: could not measure", flush=True)
+            continue
+        measurements.append((p, mean, peak))
+        print(f"MEASURE: {name} mean={mean:.1f}dB peak={peak:.1f}dB", flush=True)
+
+    if not measurements:
+        print("DONE", flush=True)
+        return
+
+    # Target = quietest peak among the loudest band (max mean ref).
+    # Boost others up to match the maximum mean_volume, capped by headroom.
+    target_mean = max(m for _, m, _ in measurements if m is not None)
+    print(f"TARGET: mean={target_mean:.1f}dB", flush=True)
+
+    # Phase 2: gain plan + optional apply
+    for i, (p, mean, peak) in enumerate(measurements, 1):
+        name = os.path.basename(p)
+        if mean is None: continue
+        raw_gain = target_mean - mean
+        # Cap so peak + gain <= -0.3 dB (small safety)
+        max_safe_gain = -0.3 - peak
+        gain = min(raw_gain, max_safe_gain)
+        gain = max(gain, 0)  # never reduce
+        if gain < 0.5:
+            print(f"PLAN: {name} gain=+0.0dB (skip)", flush=True)
+            continue
+        print(f"PLAN: {name} gain=+{gain:.1f}dB", flush=True)
+        if apply:
+            print(f"PROGRESS: {i}/{len(measurements)} applying {name}", flush=True)
+            ok = apply_gain(p, gain)
+            print(f"{'APPLIED' if ok else 'ERROR'}: {name}", flush=True)
+    print("DONE", flush=True)
 
 
 def reset_one(path, idx=None, total=None, keep_numbers=False):
@@ -190,13 +407,39 @@ def reset_one(path, idx=None, total=None, keep_numbers=False):
     new_name = f"{stem}.mp3"
     new_path = os.path.join(os.path.dirname(path), new_name)
     if new_path == path:
-        print(f"OK: {filename} (already clean)", flush=True)
+        sync_title_to_filename(path)
+        print(f"OK: {filename} (synced title)", flush=True)
         return
     if os.path.exists(new_path):
         print(f"SKIP: {filename} -> {new_name} (collision)", flush=True)
         return
-    shutil.move(path, new_path)
-    print(f"RENAMED: {filename} -> {new_name}", flush=True)
+    if rename_and_sync_title(path, new_path):
+        print(f"RENAMED: {filename} -> {new_name}", flush=True)
+
+
+def sync_title_to_filename(path):
+    """TIT2 = filename stem. No transformations. Always identical."""
+    if not path.lower().endswith(".mp3"): return
+    stem = os.path.splitext(os.path.basename(path))[0]
+    try:
+        audio = MP3(path, ID3=ID3)
+        try: audio.add_tags()
+        except ID3Error: pass
+        audio.tags.add(TIT2(encoding=3, text=stem))
+        audio.save(v2_version=3)
+    except Exception:
+        pass
+
+
+def rename_and_sync_title(old_path, new_path):
+    """Rename file and write new stem into TIT2 so name+title stay in sync."""
+    moved = False
+    if old_path != new_path:
+        if os.path.exists(new_path): return False
+        shutil.move(old_path, new_path)
+        moved = True
+    sync_title_to_filename(new_path)
+    return moved
 
 
 def set_title(path, new_title):
@@ -311,6 +554,14 @@ def main():
                    help="Strip _KEY_BPM and NNN_ from filenames, do not analyze")
     p.add_argument("--keep-numbers", action="store_true",
                    help="With --reset, preserve existing NNN_ prefix")
+    p.add_argument("--normalize", metavar="FOLDER",
+                   help="Measure loudness of all tracks; report gain plan")
+    p.add_argument("--normalize-file", metavar="FILE",
+                   help="Boost one track to safe peak (-0.3 dBFS)")
+    p.add_argument("--apply", action="store_true",
+                   help="With --normalize/--normalize-file, also re-encode to apply the gain")
+    p.add_argument("--sync-filename", metavar="FOLDER",
+                   help="Append _KEY_BPM to filenames using existing tags")
     p.add_argument("--set-title", nargs=2, metavar=("PATH", "TITLE"),
                    help="Set TIT2 only, preserving all other frames including artwork")
     p.add_argument("--set-tag", nargs=3, metavar=("PATH", "FRAME", "VALUE"),
@@ -321,6 +572,15 @@ def main():
                    help="Remove all APIC artwork frames")
     args = p.parse_args()
 
+    if args.normalize:
+        normalize_folder(args.normalize, apply=args.apply)
+        return
+    if args.normalize_file:
+        normalize_file(args.normalize_file, apply=args.apply)
+        return
+    if args.sync_filename:
+        sync_filename_to_tags(args.sync_filename)
+        return
     if args.set_title:
         set_title(args.set_title[0], args.set_title[1])
         return
@@ -353,7 +613,7 @@ def main():
         return
 
     if args.file:
-        process_one(args.file, args.rename, allow_skip=False)
+        process_one(args.file, args.rename, allow_skip=False, keep_numbers=args.keep_numbers)
         return
 
     if not args.folder:
@@ -367,7 +627,7 @@ def main():
     )
     print(f"TOTAL: {len(files)}", flush=True)
     for i, path in enumerate(files, 1):
-        process_one(path, args.rename, idx=i, total=len(files))
+        process_one(path, args.rename, idx=i, total=len(files), keep_numbers=args.keep_numbers)
     print("DONE", flush=True)
 
 
