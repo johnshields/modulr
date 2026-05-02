@@ -1,0 +1,70 @@
+"""Key detection. Strategy pattern: each detector returns (pitch_class, mode).
+
+MadmomKeyDetector  -- CNN classifier (SOTA, pretrained).
+LibrosaKeyDetector -- HPSS chroma + Temperley profile (fallback, less accurate).
+FallbackKeyDetector -- chains primary -> fallback on exception.
+"""
+from abc import ABC, abstractmethod
+
+from ..theory.constants import MADMOM_KEY_TO_MUSICAL
+from ..theory.keys import musical_to_pc_mode
+
+
+class KeyDetector(ABC):
+    @abstractmethod
+    def detect(self, path: str):
+        """Returns (pitch_class:int 0..11, mode:int [1=major, 0=minor])."""
+
+
+class MadmomKeyDetector(KeyDetector):
+    """CNNKeyRecognitionProcessor — pretrained CNN classifier."""
+
+    def detect(self, path):
+        from madmom.features.key import (
+            CNNKeyRecognitionProcessor, key_prediction_to_label,
+        )
+        pred = CNNKeyRecognitionProcessor()(path)
+        label = key_prediction_to_label(pred)
+        musical = MADMOM_KEY_TO_MUSICAL.get(label)
+        if musical is None:
+            raise RuntimeError(f"madmom: unmapped key label {label!r}")
+        return musical_to_pc_mode(musical)
+
+
+class LibrosaKeyDetector(KeyDetector):
+    """HPSS-isolated chroma + Temperley profile correlation. Fallback only."""
+
+    # Temperley (2007): trained on pop corpus, beats Krumhansl-Schmuckler for EDM
+    _MAJOR_PROFILE = [5.0, 2.0, 3.5, 2.0, 4.5, 4.0, 2.0, 4.5, 2.0, 3.5, 1.5, 4.0]
+    _MINOR_PROFILE = [5.0, 2.0, 3.5, 4.5, 2.0, 4.0, 2.0, 4.5, 3.5, 2.0, 1.5, 4.0]
+
+    def detect(self, path):
+        import librosa
+        import numpy as np
+        y, sr = librosa.load(path, sr=22050, mono=True, duration=180)
+        y_harm = librosa.effects.harmonic(y, margin=4)
+        chroma = librosa.feature.chroma_cens(y=y_harm, sr=sr, hop_length=2048)
+        chroma_mean = chroma.mean(axis=1)
+        major = np.array(self._MAJOR_PROFILE)
+        minor = np.array(self._MINOR_PROFILE)
+        best_score, best_pc, best_mode = -float("inf"), 0, 1
+        for pc in range(12):
+            for mode, profile in ((1, major), (0, minor)):
+                score = np.corrcoef(chroma_mean, np.roll(profile, pc))[0, 1]
+                if score > best_score:
+                    best_score, best_pc, best_mode = score, pc, mode
+        return best_pc, best_mode
+
+
+class FallbackKeyDetector(KeyDetector):
+    """Chain two detectors: try primary, fall back on exception."""
+
+    def __init__(self, primary: KeyDetector, fallback: KeyDetector):
+        self.primary = primary
+        self.fallback = fallback
+
+    def detect(self, path):
+        try:
+            return self.primary.detect(path)
+        except Exception:
+            return self.fallback.detect(path)

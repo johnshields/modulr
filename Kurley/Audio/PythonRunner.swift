@@ -17,14 +17,17 @@ final class PythonRunner {
     }
 
     /**
-     * Locate analyze.py via dev path or app bundle
+     * Locate analyze.py via dev path or bundled Resources/scripts.
+     * Bundle path keeps the kurley/ package sibling so relative imports resolve.
      */
     func scriptURL() -> URL? {
         let fm = FileManager.default
-        let candidates = [
-            URL(fileURLWithPath: "/Users/johnshields/Projects/kurley/scripts/analyze.py"),
-            Bundle.main.url(forResource: "analyze", withExtension: "py")
-        ].compactMap { $0 }
+        var candidates: [URL] = [
+            URL(fileURLWithPath: "/Users/johnshields/Projects/kurley/scripts/analyze.py")
+        ]
+        if let resources = Bundle.main.resourceURL {
+            candidates.append(resources.appendingPathComponent("scripts/analyze.py"))
+        }
         return candidates.first { fm.fileExists(atPath: $0.path) }
     }
 

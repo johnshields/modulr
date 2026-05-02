@@ -12,6 +12,11 @@ if [ ! -f "$ICON_SRC" ] || [ "Kurley/Resources/kurley.svg" -nt "$ICON_SRC" ]; th
   ./scripts/make-icon.swift Kurley/Resources/kurley.svg "$ICON_SRC"
 fi
 cp "$ICON_SRC" "$APP/Contents/Resources/Kurley.icns"
+
+# Bundle Python toolkit (analyze.py + kurley/ package) for runtime discovery.
+mkdir -p "$APP/Contents/Resources/scripts"
+cp scripts/analyze.py "$APP/Contents/Resources/scripts/analyze.py"
+rsync -a --exclude '__pycache__' scripts/kurley/ "$APP/Contents/Resources/scripts/kurley/"
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
