@@ -17,7 +17,12 @@ from kurley.logger import log_error
 from kurley.mastering.loudness import LoudnessNormaliser
 from kurley.mastering.tweak import TempoPitchBaker
 from kurley.metadata.tags import TagIO
-from kurley.pipelines import AnalysePipeline, ResetPipeline, SyncFilenamePipeline
+from kurley.pipelines import (
+    AnalysePipeline,
+    ResetPipeline,
+    StripNumbersPipeline,
+    SyncFilenamePipeline,
+)
 
 
 def _build_parser():
@@ -37,6 +42,9 @@ def _build_parser():
                    help="With --normalize/--normalize-file, re-encode to apply gain")
     p.add_argument("--sync-filename", metavar="FOLDER",
                    help="Append _KEY_BPM to filenames using existing tags")
+    p.add_argument("--strip-numbers", action="store_true",
+                   help="Strip leading NNN_ order prefix; preserve _KEY_BPM. "
+                        "Combine with --folder or --file.")
     p.add_argument("--bake-tweak", nargs=5,
                    metavar=("PATH", "RATE", "CENTS", "BPM", "KEY"),
                    help="Bake tempo+pitch into a track. Use - for missing BPM/KEY.")
@@ -70,6 +78,17 @@ def _dispatch_reset(args):
         log_error("--reset needs --folder or --file")
         sys.exit(1)
     pipeline.run_folder(args.folder, keep_numbers=args.keep_numbers)
+
+
+def _dispatch_strip_numbers(args):
+    pipeline = StripNumbersPipeline()
+    if args.file:
+        pipeline.run_one(args.file)
+        return
+    if not args.folder:
+        log_error("--strip-numbers needs --folder or --file")
+        sys.exit(1)
+    pipeline.run_folder(args.folder)
 
 
 def _dispatch_bake(args):
@@ -106,6 +125,8 @@ def main():
 
     if args.reset:
         _dispatch_reset(args); return
+    if args.strip_numbers:
+        _dispatch_strip_numbers(args); return
 
     _dispatch_analyse(args)
 

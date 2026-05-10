@@ -10,10 +10,17 @@ enum LibraryScanner {
 
     static func scan(_ folder: URL) -> [Track] {
         let fm = FileManager.default
-        guard let enumerator = fm.enumerator(at: folder, includingPropertiesForKeys: nil) else { return [] }
+        // Top-level entries only — subdirectories are not descended into.
+        guard let entries = try? fm.contentsOfDirectory(
+            at: folder,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants, .skipsPackageDescendants]
+        ) else { return [] }
+
         var found: [Track] = []
-        for case let file as URL in enumerator {
-            guard supportedExtensions.contains(file.pathExtension.lowercased()) else { continue }
+        for file in entries {
+            let isFile = (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) ?? false
+            guard isFile, supportedExtensions.contains(file.pathExtension.lowercased()) else { continue }
             let asset = AVURLAsset(url: file)
             found.append(Track(
                 url: file,

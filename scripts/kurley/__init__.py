@@ -3,10 +3,15 @@ from .analysis.analyser import TrackAnalyser, default_analyser
 from .mastering.loudness import LoudnessNormaliser
 from .mastering.tweak import TempoPitchBaker
 from .metadata.tags import TagIO
-from .pipelines import AnalysePipeline, ResetPipeline, SyncFilenamePipeline
+from .pipelines import (
+    AnalysePipeline,
+    ResetPipeline,
+    StripNumbersPipeline,
+    SyncFilenamePipeline,
+)
 
 __all__ = [
     "default_analyser", "TrackAnalyser", "TagIO",
     "LoudnessNormaliser", "TempoPitchBaker",
-    "AnalysePipeline", "ResetPipeline", "SyncFilenamePipeline",
+    "AnalysePipeline", "ResetPipeline", "StripNumbersPipeline", "SyncFilenamePipeline",
 ]

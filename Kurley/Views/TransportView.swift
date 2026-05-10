@@ -97,6 +97,13 @@ struct TransportView: View {
                     } label: {
                         Label("Reset Names (keep order)", systemImage: "list.number")
                     }
+                    Button {
+                        guard let cur = library.currentFolder else { return }
+                        analyzer.stripNumbersFolder(cur) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Remove Order Numbers", systemImage: "number.circle")
+                    }
                     .disabled(library.currentFolder == nil)
                 }
             } label: {

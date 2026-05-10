@@ -86,6 +86,16 @@ final class Analyzer: ObservableObject {
         run(args: args, completion: completion)
     }
 
+    func stripNumbersFolder(_ url: URL, completion: @escaping () -> Void) {
+        mode = .reset
+        run(args: ["--folder", url.path, "--strip-numbers"], completion: completion)
+    }
+
+    func stripNumbersFile(_ url: URL, completion: @escaping () -> Void) {
+        mode = .reset
+        run(args: ["--file", url.path, "--strip-numbers"], completion: completion)
+    }
+
     func normalizePreview(_ url: URL, completion: @escaping () -> Void) {
         mode = .normalize
         run(args: ["--normalize", url.path], completion: completion)

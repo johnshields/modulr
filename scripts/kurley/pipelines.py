@@ -1,10 +1,12 @@
 """End-to-end pipelines orchestrating analysers + tag IO + filename ops.
 Each pipeline class owns one CLI-facing operation:
-  AnalysePipeline       -- detect BPM/key, write tags, optional rename
-  ResetPipeline         -- strip _KEY_BPM and NNN_ from filenames
-  SyncFilenamePipeline  -- append _KEY_BPM to filenames using existing tags
+  AnalysePipeline        -- detect BPM/key, write tags, optional rename
+  ResetPipeline          -- strip _KEY_BPM and NNN_ from filenames
+  StripNumbersPipeline   -- strip leading NNN_ from filenames; keep _KEY_BPM
+  SyncFilenamePipeline   -- append _KEY_BPM to filenames using existing tags
 """
 import os
+import re
 
 from .analysis.analyser import TrackAnalyser, default_analyser
 from .logger import log, log_done, log_error, log_progress
@@ -115,6 +117,31 @@ class ResetPipeline(_BasePipeline):
 
     def run_folder(self, folder, keep_numbers=False):
         self._iterate_folder(folder, self.run_one, keep_numbers=keep_numbers)
+
+
+class StripNumbersPipeline(_BasePipeline):
+    """Remove leading NNN_ order prefix from filenames; preserve everything else."""
+
+    NNN_PREFIX = re.compile(r"^\d{2,4}_")
+
+    def run_one(self, path, idx=None, total=None):
+        filename = os.path.basename(path)
+        if idx is not None:
+            log_progress(idx, total, filename)
+
+        new_name = self.NNN_PREFIX.sub("", filename, count=1)
+        if new_name == filename:
+            log(f"OK: {filename} (no number prefix)")
+            return
+        new_path = os.path.join(os.path.dirname(path), new_name)
+        if os.path.exists(new_path):
+            log(f"SKIP: {filename} -> {new_name} (collision)")
+            return
+        if self.tag_io.rename_and_sync_title(path, new_path):
+            log(f"RENAMED: {filename} -> {new_name}")
+
+    def run_folder(self, folder):
+        self._iterate_folder(folder, self.run_one)
 
 
 class SyncFilenamePipeline(_BasePipeline):
