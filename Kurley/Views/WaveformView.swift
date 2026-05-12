@@ -162,13 +162,14 @@ struct WaveformView: View {
                             if let hx = hoverX {
                                 let ratio = max(0, min(1, hx / contentWidth))
                                 let t = player.duration * Double(ratio)
+                                // y=30 clears corner timers (caption + 8pt padding ≈ 28).
                                 Text(format(t))
                                     .font(.system(.caption, design: .monospaced))
                                     .padding(.horizontal, 6).padding(.vertical, 2)
                                     .background(.black.opacity(0.7))
                                     .foregroundStyle(.white)
                                     .cornerRadius(4)
-                                    .offset(x: min(max(hx - 30, 4), contentWidth - 64), y: 6)
+                                    .offset(x: min(max(hx - 30, 4), contentWidth - 64), y: 30)
                                     .allowsHitTesting(false)
                             }
                         }
