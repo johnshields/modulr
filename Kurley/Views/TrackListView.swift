@@ -4,6 +4,7 @@ import AppKit
 struct TrackListView: View {
     @EnvironmentObject var library: Library
     @EnvironmentObject var analyzer: Analyzer
+    @EnvironmentObject var player: AudioPlayer
     @Binding var showAnalyze: Bool
     let onPlay: (URL) -> Void
 
@@ -11,6 +12,7 @@ struct TrackListView: View {
     @State private var sortOrder: [KeyPathComparator<Track>] = [.init(\.title)]
     @State private var tagTrack: Track?
     @State private var deleteTrack: Track?
+    @State private var search = ""
 
     @State private var editMode = false
     @State private var editItems: [Track] = []
@@ -21,8 +23,36 @@ struct TrackListView: View {
     @State private var artCache: [URL: NSImage] = [:]
 
     private static let accent = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
+    private static let compatTint = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
 
     private var sorted: [Track] { library.tracks.sorted(using: sortOrder) }
+
+    private var visible: [Track] {
+        let q = search.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return sorted }
+        return sorted.filter { t in
+            if t.title.lowercased().contains(q) { return true }
+            if let a = t.artist, a.lowercased().contains(q) { return true }
+            if let k = t.key {
+                if k.lowercased() == q { return true }
+                if KeyNormalizer.toMusical(k).lowercased() == q { return true }
+            }
+            if let b = t.bpm, String(b) == q { return true }
+            return false
+        }
+    }
+
+    private var currentKey: String? {
+        guard let url = player.currentURL,
+              let t = library.tracks.first(where: { $0.url == url }),
+              let k = t.key else { return nil }
+        return k
+    }
+
+    private var compatKeys: Set<String> {
+        guard let k = currentKey else { return [] }
+        return KeyNormalizer.compatibleMusicals(of: k)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,6 +82,29 @@ struct TrackListView: View {
         HStack(spacing: 10) {
             Text("\(library.tracks.count) tracks")
                 .font(.caption).foregroundStyle(.secondary)
+
+            if !editMode {
+                HStack(spacing: 5) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                        .font(.system(size: 10))
+                    TextField("Search title, key, BPM…", text: $search)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 11))
+                        .frame(minWidth: 180, maxWidth: 240)
+                    if !search.isEmpty {
+                        Button { search = "" } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                                .font(.system(size: 10))
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(5)
+            }
 
             if editMode {
                 Picker("", selection: $padding) {
@@ -89,7 +142,7 @@ struct TrackListView: View {
     }
 
     private var tableBody: some View {
-        Table(sorted, selection: $selection, sortOrder: $sortOrder) {
+        Table(visible, selection: $selection, sortOrder: $sortOrder) {
             TableColumn("Name", value: \.title) { t in
                 HStack {
                     Button {
@@ -112,8 +165,14 @@ struct TrackListView: View {
             TableColumn("BPM", value: \.bpmSort) { t in Text(t.bpmDisplay) }
                 .width(min: 50, ideal: 60, max: 80)
 
-            TableColumn("Key", value: \.keySort) { t in Text(t.keyDisplay) }
-                .width(min: 50, ideal: 60, max: 80)
+            TableColumn("Key", value: \.keySort) { t in
+                let musical = t.key.map { KeyNormalizer.toMusical($0) } ?? ""
+                let isCompat = !musical.isEmpty && compatKeys.contains(musical)
+                Text(t.keyDisplay)
+                    .foregroundStyle(isCompat ? Self.compatTint : .primary)
+                    .fontWeight(isCompat ? .semibold : .regular)
+            }
+            .width(min: 50, ideal: 60, max: 80)
 
             TableColumn("Duration", value: \.duration) { t in Text(format(t.duration)) }
                 .width(min: 70, ideal: 80, max: 100)

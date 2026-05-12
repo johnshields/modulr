@@ -115,6 +115,33 @@ enum KeyNormalizer {
         return camelot["\(p)_\(mode)"]
     }
 
+    /**
+     * Camelot-wheel compatible neighbours for harmonic mixing.
+     * Returns set of musical labels covering both strict and practical rules:
+     *   - same key (perfect match)
+     *   - ±1 same letter (adjacent energy)
+     *   - same number, opposite letter (relative major/minor)
+     *   - ±1 opposite letter (diagonal "mood shift", e.g. F#m -> D)
+     * Empty set if raw cannot be parsed.
+     */
+    static func compatibleMusicals(of raw: String) -> Set<String> {
+        guard let cam = toCamelot(raw),
+              let last = cam.last,
+              let n = Int(cam.dropLast()), n >= 1 && n <= 12 else { return [] }
+        let prev = n == 1 ? 12 : n - 1
+        let next = n == 12 ? 1 : n + 1
+        let opposite: Character = last == "A" ? "B" : "A"
+        let neighbours = [
+            "\(n)\(last)",
+            "\(prev)\(last)",
+            "\(next)\(last)",
+            "\(n)\(opposite)",
+            "\(prev)\(opposite)",
+            "\(next)\(opposite)",
+        ]
+        return Set(neighbours.compactMap { camelotToMusical[$0] })
+    }
+
     private static func isCamelot(_ s: String) -> Bool {
         guard s.count >= 2, s.count <= 3 else { return false }
         let last = s.last

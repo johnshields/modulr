@@ -25,10 +25,17 @@ final class Library: ObservableObject {
     }
 
     func openFolder(_ url: URL) {
-        tracks = LibraryScanner.scan(url)
+        // Surface folder metadata immediately; scan tracks off main thread.
         currentFolder = url
         store.setLastFolder(url)
         recents = store.addRecent(url, current: recents)
+        tracks = []
+        Task { [weak self] in
+            let scanned = await LibraryScanner.scan(url)
+            await MainActor.run { [weak self] in
+                self?.tracks = scanned
+            }
+        }
     }
 
     func toggleFavorite(_ id: UUID) {
@@ -76,7 +83,7 @@ final class Library: ObservableObject {
             url: workingURL,
             title: resolvedTitle,
             artist: meta.artist.isEmpty ? original.artist : meta.artist,
-            bpm: meta.bpm ?? original.bpm
+            bpm: meta.bpm
         )
     }
 

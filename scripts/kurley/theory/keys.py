@@ -16,7 +16,7 @@ def normalise_musical(raw):
         return MADMOM_KEY_TO_MUSICAL[s]
 
     pitch, rest = _split_pitch(s.replace(" ", ""))
-    if pitch is None:
+    if pitch is None or pitch[0] not in "ABCDEFG":
         return raw
 
     rest_lower = rest.lower()
