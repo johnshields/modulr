@@ -13,7 +13,7 @@ struct ContentView: View {
     @State private var artwork: NSImage?
 
     var windowTitle: String {
-        guard let url = player.currentURL else { return "Kurley" }
+        guard let url = player.currentURL else { return "Modulr" }
         let name = url.deletingPathExtension().lastPathComponent
         return "Now Playing — \(name)"
     }

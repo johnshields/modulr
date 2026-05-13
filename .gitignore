@@ -23,9 +23,9 @@ Package.resolved
 *.xcodeproj
 
 # Generated app + icons + iconset
-Kurley/Resources/Kurley.icns
-Kurley/Resources/*.iconset/
-.build/Kurley.app/
+Modulr/Resources/Modulr.icns
+Modulr/Resources/*.iconset/
+.build/Modulr.app/
 
 # Environment
 .env

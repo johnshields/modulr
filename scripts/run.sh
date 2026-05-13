@@ -3,15 +3,15 @@
 set -e
 cd "$(dirname "$0")/.."
 swift build -c release
-APP=".build/Kurley.app"
+APP=".build/Modulr.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp .build/release/Kurley "$APP/Contents/MacOS/Kurley"
-ICON_SRC="Kurley/Resources/Kurley.icns"
-if [ ! -f "$ICON_SRC" ] || [ "Kurley/Resources/kurley.svg" -nt "$ICON_SRC" ]; then
-  ./scripts/make-icon.swift Kurley/Resources/kurley.svg "$ICON_SRC"
+cp .build/release/Modulr "$APP/Contents/MacOS/Modulr"
+ICON_SRC="Modulr/Resources/Modulr.icns"
+if [ ! -f "$ICON_SRC" ] || [ "Modulr/Resources/modulr.svg" -nt "$ICON_SRC" ]; then
+  ./scripts/make-icon.swift Modulr/Resources/modulr.svg "$ICON_SRC"
 fi
-cp "$ICON_SRC" "$APP/Contents/Resources/Kurley.icns"
+cp "$ICON_SRC" "$APP/Contents/Resources/Modulr.icns"
 
 # Bundle Python toolkit (analyze.py + kurley/ package) for runtime discovery.
 mkdir -p "$APP/Contents/Resources/scripts"
@@ -22,10 +22,10 @@ cat > "$APP/Contents/Info.plist" <<EOF
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Kurley</string>
-  <key>CFBundleExecutable</key><string>Kurley</string>
-  <key>CFBundleIconFile</key><string>Kurley</string>
-  <key>CFBundleIdentifier</key><string>com.refulfil.kurley</string>
+  <key>CFBundleName</key><string>Modulr</string>
+  <key>CFBundleExecutable</key><string>Modulr</string>
+  <key>CFBundleIconFile</key><string>Modulr</string>
+  <key>CFBundleIdentifier</key><string>com.refulfil.modulr</string>
   <key>CFBundleVersion</key><string>0.1</string>
   <key>CFBundleShortVersionString</key><string>0.1</string>
   <key>CFBundlePackageType</key><string>APPL</string>
@@ -58,11 +58,11 @@ xattr -cr "$APP" 2>/dev/null || true
 codesign --force --deep --sign - "$APP" 2>/dev/null || true
 
 if [ "$1" = "--install" ]; then
-  rm -rf /Applications/Kurley.app
-  cp -R "$APP" /Applications/Kurley.app
-  xattr -cr /Applications/Kurley.app 2>/dev/null || true
-  codesign --force --deep --sign - /Applications/Kurley.app 2>/dev/null || true
-  open /Applications/Kurley.app
+  rm -rf /Applications/Modulr.app
+  cp -R "$APP" /Applications/Modulr.app
+  xattr -cr /Applications/Modulr.app 2>/dev/null || true
+  codesign --force --deep --sign - /Applications/Modulr.app 2>/dev/null || true
+  open /Applications/Modulr.app
 else
   open "$APP"
 fi

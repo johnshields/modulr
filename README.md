@@ -1,4 +1,4 @@
-# Kurley
+# Modulr
 
 macOS audio player.
 
@@ -8,10 +8,7 @@ macOS audio player.
 - AVAudioEngine (EQ, taps, effects)
 
 ## Build
-Open `Kurley.xcodeproj` in Xcode 16+. macOS 14+ target.
+Open `Modulr.xcodeproj` in Xcode 16+. macOS 14+ target.
 
-## Free features
+## Features
 Playback, mute, shuffle, repeat, favorites, playlists, folder browse, 10-band EQ, tag read, waveform, meters, AirPlay.
-
-## Paid (one-time)
-Cloud sync, batch tag edit, AI auto-tag, stem split.

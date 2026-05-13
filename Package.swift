@@ -2,21 +2,21 @@
 import PackageDescription
 
 let package = Package(
-    name: "Kurley",
+    name: "Modulr",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "Kurley", targets: ["Kurley"])
+        .executable(name: "Modulr", targets: ["Modulr"])
     ],
     dependencies: [
         .package(url: "https://github.com/chicio/ID3TagEditor.git", from: "4.0.0")
     ],
     targets: [
         .executableTarget(
-            name: "Kurley",
+            name: "Modulr",
             dependencies: [
                 .product(name: "ID3TagEditor", package: "ID3TagEditor")
             ],
-            path: "Kurley",
+            path: "Modulr",
             resources: [.process("Resources")]
         )
     ]

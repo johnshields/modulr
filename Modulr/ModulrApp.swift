@@ -1,11 +1,11 @@
 import SwiftUI
 
 @main
-struct KurleyApp: App {
+struct ModulrApp: App {
     @StateObject private var player = AudioPlayer()
 
     var body: some Scene {
-        Window("Kurley", id: "main") {
+        Window("Modulr", id: "main") {
             ContentView()
                 .environmentObject(player)
                 .frame(minWidth: 900, minHeight: 600)

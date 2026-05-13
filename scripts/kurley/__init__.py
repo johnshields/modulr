@@ -1,4 +1,4 @@
-"""Kurley analyse + tag toolkit. OOP modules behind scripts/analyze.py CLI."""
+"""Modulr analyse + tag toolkit. OOP modules behind scripts/analyze.py CLI."""
 from .analysis.analyser import TrackAnalyser, default_analyser
 from .mastering.loudness import LoudnessNormaliser
 from .mastering.tweak import TempoPitchBaker

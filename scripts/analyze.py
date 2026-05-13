@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kurley analyse + tag CLI.
+"""Modulr analyse + tag CLI.
 Thin dispatcher over the kurley package. Maintains the stdout protocol
 consumed by Audio/PythonRunner.swift (PROGRESS / DONE / ERROR lines).
 """

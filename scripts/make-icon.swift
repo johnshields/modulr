@@ -29,7 +29,7 @@ let sizes: [(Int, String)] = [
     (1024,"icon_512x512@2x.png")
 ]
 
-let tmpDir = FileManager.default.temporaryDirectory.appendingPathComponent("kurley.iconset")
+let tmpDir = FileManager.default.temporaryDirectory.appendingPathComponent("modulr.iconset")
 try? FileManager.default.removeItem(at: tmpDir)
 try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
 
