@@ -6,8 +6,8 @@ import Foundation
  */
 final class RecentsStore {
     private let defaults = UserDefaults.standard
-    private let kLastFolder = "kurley.lastFolder"
-    private let kRecents = "kurley.recents"
+    private let kLastFolder = "modulr.lastFolder"
+    private let kRecents = "modulr.recents"
     private let maxRecents = 10
 
     var lastFolder: URL? {

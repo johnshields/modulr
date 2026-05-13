@@ -8,7 +8,7 @@ import Combine
  * Mutations route through TagService for tag/file ops; persistence delegated to RecentsStore.
  */
 extension Notification.Name {
-    static let artworkChanged = Notification.Name("kurley.artworkChanged")
+    static let artworkChanged = Notification.Name("modulr.artworkChanged")
 }
 
 final class Library: ObservableObject {

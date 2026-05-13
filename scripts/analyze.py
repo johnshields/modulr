@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Modulr analyse + tag CLI.
-Thin dispatcher over the kurley package. Maintains the stdout protocol
+Thin dispatcher over the modulr package. Maintains the stdout protocol
 consumed by Audio/PythonRunner.swift (PROGRESS / DONE / ERROR lines).
 """
 import argparse
@@ -13,11 +13,11 @@ warnings.filterwarnings("ignore")
 # Allow `python scripts/analyze.py ...` from project root regardless of cwd.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from kurley.logger import log_error
-from kurley.mastering.loudness import LoudnessNormaliser
-from kurley.mastering.tweak import TempoPitchBaker
-from kurley.metadata.tags import TagIO
-from kurley.pipelines import (
+from modulr.logger import log_error
+from modulr.mastering.loudness import LoudnessNormaliser
+from modulr.mastering.tweak import TempoPitchBaker
+from modulr.metadata.tags import TagIO
+from modulr.pipelines import (
     AnalysePipeline,
     ResetPipeline,
     StripNumbersPipeline,

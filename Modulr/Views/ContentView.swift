@@ -15,7 +15,7 @@ struct ContentView: View {
     var windowTitle: String {
         guard let url = player.currentURL else { return "Modulr" }
         let name = url.deletingPathExtension().lastPathComponent
-        return "Now Playing — \(name)"
+        return "Now Playing: \(name)"
     }
 
     var body: some View {

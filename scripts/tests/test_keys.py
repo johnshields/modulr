@@ -1,4 +1,4 @@
-"""Pure-function tests for kurley.theory.keys.normalise_musical + musical_to_pc_mode.
+"""Pure-function tests for modulr.theory.keys.normalise_musical + musical_to_pc_mode.
 Run from project root:  python3 -m unittest scripts.tests.test_keys
 """
 import os
@@ -7,7 +7,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
 
-from kurley.theory.keys import musical_to_pc_mode, normalise_musical
+from modulr.theory.keys import musical_to_pc_mode, normalise_musical
 
 
 class NormaliseMusicalTests(unittest.TestCase):

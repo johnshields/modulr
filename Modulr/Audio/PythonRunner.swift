@@ -9,7 +9,7 @@ final class PythonRunner {
     static let shared = PythonRunner()
 
     private let defaults = UserDefaults.standard
-    private let kPython = "kurley.pythonPath"
+    private let kPython = "modulr.pythonPath"
 
     var pythonPath: String {
         get { defaults.string(forKey: kPython) ?? "/opt/homebrew/bin/python3" }
@@ -17,18 +17,13 @@ final class PythonRunner {
     }
 
     /**
-     * Locate analyze.py via dev path or bundled Resources/scripts.
-     * Bundle path keeps the kurley/ package sibling so relative imports resolve.
+     * Locate analyze.py inside the bundled Resources/scripts.
+     * Bundle path keeps the modulr/ package sibling so relative imports resolve.
      */
     func scriptURL() -> URL? {
-        let fm = FileManager.default
-        var candidates: [URL] = [
-            URL(fileURLWithPath: "/Users/johnshields/Projects/kurley/scripts/analyze.py")
-        ]
-        if let resources = Bundle.main.resourceURL {
-            candidates.append(resources.appendingPathComponent("scripts/analyze.py"))
-        }
-        return candidates.first { fm.fileExists(atPath: $0.path) }
+        guard let resources = Bundle.main.resourceURL else { return nil }
+        let path = resources.appendingPathComponent("scripts/analyze.py")
+        return FileManager.default.fileExists(atPath: path.path) ? path : nil
     }
 
     /**

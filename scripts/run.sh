@@ -13,10 +13,10 @@ if [ ! -f "$ICON_SRC" ] || [ "Modulr/Resources/modulr.svg" -nt "$ICON_SRC" ]; th
 fi
 cp "$ICON_SRC" "$APP/Contents/Resources/Modulr.icns"
 
-# Bundle Python toolkit (analyze.py + kurley/ package) for runtime discovery.
+# Bundle Python toolkit (analyze.py + modulr/ package) for runtime discovery.
 mkdir -p "$APP/Contents/Resources/scripts"
 cp scripts/analyze.py "$APP/Contents/Resources/scripts/analyze.py"
-rsync -a --exclude '__pycache__' scripts/kurley/ "$APP/Contents/Resources/scripts/kurley/"
+rsync -a --exclude '__pycache__' scripts/modulr/ "$APP/Contents/Resources/scripts/modulr/"
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -25,7 +25,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundleName</key><string>Modulr</string>
   <key>CFBundleExecutable</key><string>Modulr</string>
   <key>CFBundleIconFile</key><string>Modulr</string>
-  <key>CFBundleIdentifier</key><string>com.refulfil.modulr</string>
+  <key>CFBundleIdentifier</key><string>com.fromlost.modulr</string>
   <key>CFBundleVersion</key><string>0.1</string>
   <key>CFBundleShortVersionString</key><string>0.1</string>
   <key>CFBundlePackageType</key><string>APPL</string>

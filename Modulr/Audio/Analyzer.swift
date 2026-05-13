@@ -44,13 +44,13 @@ final class Analyzer: ObservableObject {
 
     private var task: Process?
     private let defaults = UserDefaults.standard
-    private let kRename = "kurley.renameAfter"
-    private let kKeepOrder = "kurley.keepOrder"
+    private let kRename = "modulr.renameAfter"
+    private let kKeepOrder = "modulr.keepOrder"
     private var totalCount: Double = 0
 
     init() {
-        self.renameAfter = UserDefaults.standard.bool(forKey: "kurley.renameAfter")
-        self.keepOrder = UserDefaults.standard.bool(forKey: "kurley.keepOrder")
+        self.renameAfter = UserDefaults.standard.bool(forKey: "modulr.renameAfter")
+        self.keepOrder = UserDefaults.standard.bool(forKey: "modulr.keepOrder")
     }
 
     /**

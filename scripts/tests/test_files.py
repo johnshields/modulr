@@ -1,4 +1,4 @@
-"""Pure-function tests for kurley.metadata.files (slug, preserve_nnn_prefix).
+"""Pure-function tests for modulr.metadata.files (slug, preserve_nnn_prefix).
 Run from project root:  python3 -m unittest scripts.tests.test_files
 """
 import os
@@ -7,7 +7,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
 
-from kurley.metadata.files import preserve_nnn_prefix, slug
+from modulr.metadata.files import preserve_nnn_prefix, slug
 
 
 class SlugTests(unittest.TestCase):
