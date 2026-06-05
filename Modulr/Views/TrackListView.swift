@@ -6,6 +6,7 @@ struct TrackListView: View {
     @EnvironmentObject var analyzer: Analyzer
     @EnvironmentObject var player: AudioPlayer
     @Binding var showAnalyze: Bool
+    @Binding var editingOrder: Bool
     let onPlay: (URL) -> Void
 
     @State private var selection: Track.ID?
@@ -14,7 +15,6 @@ struct TrackListView: View {
     @State private var deleteTrack: Track?
     @State private var search = ""
 
-    @State private var editMode = false
     @State private var editItems: [Track] = []
     @State private var dragID: UUID?
     @State private var applying = false
@@ -56,7 +56,7 @@ struct TrackListView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            if editMode { editBody } else { tableBody }
+            if editingOrder { editBody } else { tableBody }
         }
         .tint(Self.accent)
         .sheet(item: $tagTrack) { t in TagEditSheet(track: t).environmentObject(library) }
@@ -82,7 +82,7 @@ struct TrackListView: View {
             Text("\(library.tracks.count) tracks")
                 .font(.caption).foregroundStyle(.secondary)
 
-            if !editMode {
+            if !editingOrder {
                 HStack(spacing: 5) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(.secondary)
@@ -105,7 +105,7 @@ struct TrackListView: View {
                 .cornerRadius(5)
             }
 
-            if editMode {
+            if editingOrder {
                 Menu("Sort") {
                     Button("BPM ascending") { withAnimation { editItems.sort { ($0.bpm ?? 0) < ($1.bpm ?? 0) } } }
                     Button("BPM descending") { withAnimation { editItems.sort { ($0.bpm ?? 0) > ($1.bpm ?? 0) } } }
@@ -118,15 +118,15 @@ struct TrackListView: View {
 
             Spacer()
 
-            if editMode {
-                Button("Cancel") { editMode = false }.disabled(applying)
+            if editingOrder {
+                Button("Cancel") { editingOrder = false }.disabled(applying)
                 Button(applying ? "Applying…" : "Apply") { applyEdit() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(editItems.isEmpty || applying)
             } else {
                 Button {
                     editItems = sorted
-                    editMode = true
+                    editingOrder = true
                 } label: { Label("Edit Order", systemImage: "list.number") }
                 .controlSize(.small)
                 .disabled(library.tracks.isEmpty)
@@ -321,7 +321,7 @@ struct TrackListView: View {
             }
             DispatchQueue.main.async {
                 applying = false
-                editMode = false
+                editingOrder = false
             }
         }
     }

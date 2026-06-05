@@ -11,6 +11,7 @@ struct ContentView: View {
     @StateObject private var analyzer = Analyzer()
     @State private var showAnalyze = false
     @State private var artwork: NSImage?
+    @State private var editingOrder = false
 
     var windowTitle: String {
         guard let url = player.currentURL else { return "Modulr" }
@@ -25,16 +26,22 @@ struct ContentView: View {
                 .environmentObject(analyzer)
         } detail: {
             VStack(spacing: 0) {
-                WaveformView(monitor: player.monitor)
-                    .environmentObject(library)
-                TransportView(showAnalyze: $showAnalyze)
-                    .environmentObject(library)
-                    .environmentObject(analyzer)
-                Divider()
-                TrackListView(showAnalyze: $showAnalyze, onPlay: { url in
-                    player.load(url)
-                    player.play()
-                })
+                if !editingOrder {
+                    WaveformView(monitor: player.monitor)
+                        .environmentObject(library)
+                    TransportView(showAnalyze: $showAnalyze)
+                        .environmentObject(library)
+                        .environmentObject(analyzer)
+                    Divider()
+                }
+                TrackListView(
+                    showAnalyze: $showAnalyze,
+                    editingOrder: $editingOrder,
+                    onPlay: { url in
+                        player.load(url)
+                        player.play()
+                    }
+                )
                     .environmentObject(library)
                     .environmentObject(analyzer)
             }
