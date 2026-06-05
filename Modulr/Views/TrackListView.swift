@@ -202,7 +202,7 @@ struct TrackListView: View {
             }
             .width(min: 50, ideal: 60, max: 80)
 
-            TableColumn("Duration", value: \.duration) { t in Text(format(t.duration)) }
+            TableColumn("Duration", value: \.duration) { t in Text(Formatters.mmss(t.duration)) }
                 .width(min: 70, ideal: 80, max: 100)
 
             TableColumn("Type", value: \.fileType) { t in
@@ -428,8 +428,4 @@ struct TrackListView: View {
         }
     }
 
-    private func format(_ s: TimeInterval) -> String {
-        let m = Int(s) / 60, sec = Int(s) % 60
-        return String(format: "%02d:%02d", m, sec)
-    }
 }

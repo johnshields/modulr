@@ -163,7 +163,7 @@ struct WaveformView: View {
                                 let ratio = max(0, min(1, hx / contentWidth))
                                 let t = player.duration * Double(ratio)
                                 // y=30 clears corner timers (caption + 8pt padding ≈ 28).
-                                Text(format(t))
+                                Text(Formatters.mmss(t))
                                     .font(.system(.caption, design: .monospaced))
                                     .padding(.horizontal, 6).padding(.vertical, 2)
                                     .background(.black.opacity(0.7))
@@ -187,9 +187,9 @@ struct WaveformView: View {
                     } // ScrollViewReader
 
                     HStack {
-                        Text(format(monitor.currentTime))
+                        Text(Formatters.mmss(monitor.currentTime))
                         Spacer()
-                        Text("-" + format(max(0, player.duration - monitor.currentTime)))
+                        Text("-" + Formatters.mmss(max(0, player.duration - monitor.currentTime)))
                     }
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.85))
@@ -285,9 +285,4 @@ struct WaveformView: View {
         player.play()
     }
 
-    private func format(_ s: TimeInterval) -> String {
-        guard s.isFinite else { return "00:00" }
-        let m = Int(s) / 60, sec = Int(s) % 60
-        return String(format: "%02d:%02d", m, sec)
-    }
 }

@@ -9,7 +9,6 @@ Each pipeline class owns one CLI-facing operation:
 """
 import os
 import re
-import subprocess
 
 from .analysis.analyser import TrackAnalyser, default_analyser
 from .logger import log, log_done, log_error, log_progress
@@ -236,17 +235,12 @@ class ConvertPipeline(_BasePipeline):
         if os.path.exists(dst):
             log_error(f"{os.path.basename(dst)} already exists"); return
 
-        cmd = [self._ffmpeg.binary(), "-y", "-hide_banner", "-loglevel", "error",
-               "-i", src_path,
-               "-c:a", "libmp3lame", "-b:a", self.BITRATE,
-               "-map_metadata", "0", "-id3v2_version", "3",
-               dst]
         log(f"CONVERTING: {log_label} -> {os.path.basename(dst)} @ {self.BITRATE}")
-        proc = subprocess.run(cmd, stderr=subprocess.PIPE)
-        if proc.returncode != 0:
-            try: os.unlink(dst)
-            except Exception: pass
-            log_error(f"ffmpeg: {(proc.stderr.decode(errors='ignore'))[:200]}")
+        ok, err = self._ffmpeg.transcode(
+            src_path, dst, codec="libmp3lame", bitrate=self.BITRATE,
+        )
+        if not ok:
+            log_error(f"ffmpeg: {(err or '')[:200]}")
             return
         log(f"CONVERTED: {os.path.basename(dst)}")
         if delete_original:
@@ -278,7 +272,7 @@ class BrightenPipeline(_BasePipeline):
         name = os.path.basename(src_path)
         log_progress(1, 1, name)
         try:
-            ffmpeg = self._ffmpeg.binary()
+            self._ffmpeg.binary()
         except FileNotFoundError as e:
             log_error(str(e)); log_done(); return
 
@@ -289,19 +283,14 @@ class BrightenPipeline(_BasePipeline):
 
         codec = self.EXT_TO_CODEC.get(ext.lower().lstrip("."), "copy")
         filters = ",".join([self.EXCITER, self.SHELF, self.LIMITER])
-        cmd = [ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
-               "-i", src_path, "-af", filters,
-               "-c:a", codec]
-        if codec != "pcm_s16le":
-            cmd += ["-b:a", self.BITRATE]
-        cmd += ["-map_metadata", "0", "-id3v2_version", "3", dst]
+        bitrate = None if codec == "pcm_s16le" else self.BITRATE
 
         log(f"BRIGHTENING: {name} -> {os.path.basename(dst)}")
-        proc = subprocess.run(cmd, stderr=subprocess.PIPE)
-        if proc.returncode != 0:
-            try: os.unlink(dst)
-            except Exception: pass
-            log_error(f"ffmpeg: {(proc.stderr.decode(errors='ignore'))[:200]}")
+        ok, err = self._ffmpeg.transcode(
+            src_path, dst, filters=filters, codec=codec, bitrate=bitrate,
+        )
+        if not ok:
+            log_error(f"ffmpeg: {(err or '')[:200]}")
             log_done(); return
         log(f"BRIGHTENED: {os.path.basename(dst)}")
         log_done()

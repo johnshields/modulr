@@ -19,20 +19,12 @@ struct BrightenSheet: View {
     @EnvironmentObject var quality: QualityCache
     @Environment(\.dismiss) private var dismiss
 
-    private enum Phase { case preview, working, done, error }
-
-    @State private var phase: Phase = .preview
+    @State private var phase: EnhancementPhase = .preview
     @State private var errorMessage: String?
     @State private var showSpectrum = false
 
-    private static let accent = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
-
     private var sourceURL: URL { track.url }
-    private var targetURL: URL {
-        let dir = sourceURL.deletingLastPathComponent()
-        let stem = sourceURL.deletingPathExtension().lastPathComponent
-        return dir.appendingPathComponent("\(stem)_bright").appendingPathExtension(sourceURL.pathExtension)
-    }
+    private var targetURL: URL { sourceURL.sibling(suffix: "_bright") }
     private var targetExists: Bool {
         phase == .preview && FileManager.default.fileExists(atPath: targetURL.path)
     }
@@ -40,9 +32,7 @@ struct BrightenSheet: View {
         guard phase == .done else { return nil }
         return quality.verdict(for: targetURL)
     }
-    private var originalVerdict: QualityVerdict? {
-        quality.verdict(for: sourceURL)
-    }
+    private var originalVerdict: QualityVerdict? { quality.verdict(for: sourceURL) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -64,7 +54,7 @@ struct BrightenSheet: View {
                 case .preview: previewButtons
                 case .working: workingBody
                 case .done:    doneButtons
-                case .error:   errorButtons
+                case .error:   RetryButton { phase = .preview; errorMessage = nil }
                 }
             }
         }
@@ -86,19 +76,16 @@ struct BrightenSheet: View {
         HStack(spacing: 10) {
             switch phase {
             case .preview:
-                Image(systemName: "sparkles")
-                    .font(.title2).foregroundStyle(Self.accent)
+                Image(systemName: "sparkles").font(.title2).foregroundStyle(Theme.accent)
                 titleColumn("Brighten Track?", sourceURL.lastPathComponent)
             case .working:
                 ProgressView().controlSize(.regular).frame(width: 22, height: 22)
                 titleColumn("Brightening…", sourceURL.lastPathComponent)
             case .done:
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title2).foregroundStyle(.green)
+                Image(systemName: "checkmark.circle.fill").font(.title2).foregroundStyle(.green)
                 titleColumn("Brighten Complete", targetURL.lastPathComponent)
             case .error:
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.title2).foregroundStyle(.red)
+                Image(systemName: "exclamationmark.triangle.fill").font(.title2).foregroundStyle(.red)
                 titleColumn("Brighten Failed", sourceURL.lastPathComponent)
             }
         }
@@ -115,8 +102,7 @@ struct BrightenSheet: View {
         Group {
             if let orig = originalVerdict {
                 HStack(spacing: 6) {
-                    Text("Current:")
-                        .font(.caption).foregroundStyle(.secondary)
+                    Text("Current:").font(.caption).foregroundStyle(.secondary)
                     Text(orig.label.uppercased())
                         .font(.caption.weight(.bold))
                         .foregroundStyle(orig.color)
@@ -124,13 +110,8 @@ struct BrightenSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, 4)
             }
-            Button(action: startBrighten) {
-                Label("Brighten Track", systemImage: "sparkles")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Self.accent)
-            .disabled(targetExists)
+            PrimaryButton(title: "Brighten Track", systemImage: "sparkles",
+                          action: startBrighten, disabled: targetExists)
         }
     }
 
@@ -143,46 +124,18 @@ struct BrightenSheet: View {
 
     private var doneButtons: some View {
         Group {
-            Button(action: replaceOriginal) {
-                Label("Replace Original with Brightened", systemImage: "arrow.triangle.2.circlepath")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
+            PrimaryButton(title: "Replace Original with Brightened",
+                          systemImage: "arrow.triangle.2.circlepath",
+                          action: replaceOriginal)
+            SecondaryButton(title: "Preview Brightened",
+                            systemImage: "play.circle", action: previewBright)
+            SecondaryButton(title: "Show Spectrum", systemImage: "waveform.path") {
+                showSpectrum = true
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Self.accent)
-
-            Button(action: previewBright) {
-                Label("Preview Brightened", systemImage: "play.circle")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
-            }
-            .buttonStyle(.bordered)
-
-            Button { showSpectrum = true } label: {
-                Label("Show Spectrum", systemImage: "waveform.path")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
-            }
-            .buttonStyle(.bordered)
-
-            Button(action: revealBright) {
-                Label("Show in Finder", systemImage: "folder")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
-            }
-            .buttonStyle(.bordered)
-
-            Button("Keep Both", action: finishAndDismiss)
-                .buttonStyle(.bordered)
-                .frame(maxWidth: .infinity)
+            SecondaryButton(title: "Show in Finder",
+                            systemImage: "folder", action: revealBright)
+            KeepBothButton(action: finishAndDismiss)
         }
-    }
-
-    private var errorButtons: some View {
-        Button {
-            phase = .preview; errorMessage = nil
-        } label: {
-            Label("Retry", systemImage: "arrow.clockwise")
-                .frame(maxWidth: .infinity).padding(.vertical, 6)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(Self.accent)
     }
 
     private enum Recommendation {

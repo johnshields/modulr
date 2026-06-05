@@ -43,21 +43,39 @@ class FfmpegRunner:
         return self.EXT_TO_CODEC.get(ext, "copy")
 
     def encode(self, src, filter_chain):
-        """Encode src through filter_chain to a temp file. Returns (out_path, err_text)."""
+        """Encode src through filter_chain to a temp file. Returns (out_path, err_text).
+        Used by the in-place ops (loudness boost, tempo/pitch bake) that swap
+        the result back over the original via shutil.move.
+        """
         ext = os.path.splitext(src)[1].lower()
         tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
         tmp.close()
-        cmd = [self.binary(), "-y", "-hide_banner", "-loglevel", "error",
-               "-i", src, "-af", filter_chain,
-               "-c:a", self.codec_for(src), "-q:a", "0",
-               "-map_metadata", "0", "-id3v2_version", "3",
-               tmp.name]
+        ok, err = self.transcode(src, tmp.name, filters=filter_chain, quality="0")
+        if not ok:
+            return None, err
+        return tmp.name, None
+
+    def transcode(self, src, dst, *, filters=None, codec=None, bitrate=None, quality=None):
+        """Run a single ffmpeg invocation src -> dst with optional filter chain,
+        codec override and bitrate. Used by Convert and Brighten which write to
+        a deliberate sibling path rather than a temp file.
+        Returns (ok: bool, err_text: Optional[str]).
+        """
+        cmd = [self.binary(), "-y", "-hide_banner", "-loglevel", "error", "-i", src]
+        if filters:
+            cmd += ["-af", filters]
+        cmd += ["-c:a", codec or self.codec_for(dst)]
+        if bitrate:
+            cmd += ["-b:a", bitrate]
+        if quality is not None:
+            cmd += ["-q:a", str(quality)]
+        cmd += ["-map_metadata", "0", "-id3v2_version", "3", dst]
         proc = subprocess.run(cmd, stderr=subprocess.PIPE)
         if proc.returncode != 0:
-            try: os.unlink(tmp.name)
+            try: os.unlink(dst)
             except Exception: pass
-            return None, proc.stderr.decode("utf-8", errors="ignore")
-        return tmp.name, None
+            return False, proc.stderr.decode("utf-8", errors="ignore")
+        return True, None
 
 
 class VolumeMeter:

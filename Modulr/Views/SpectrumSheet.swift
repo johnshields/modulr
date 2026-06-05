@@ -252,16 +252,8 @@ struct SpectrumSheet: View {
         return stride(from: 0, through: duration, by: step).map { $0 }
     }
 
-    private func formatHz(_ hz: Double) -> String {
-        if hz >= 1_000 { return "\(Int(hz / 1_000)) kHz" }
-        return "\(Int(hz)) Hz"
-    }
-
-    private func formatTime(_ s: Double) -> String {
-        let m = Int(s) / 60
-        let sec = Int(s) % 60
-        return String(format: "%d:%02d", m, sec)
-    }
+    private func formatHz(_ hz: Double) -> String { Formatters.hertz(hz) }
+    private func formatTime(_ s: Double) -> String { Formatters.mss(s) }
 
     private func buildStreamInfo(url: URL, sampleRate: Double) -> String {
         let codec = url.pathExtension.uppercased()

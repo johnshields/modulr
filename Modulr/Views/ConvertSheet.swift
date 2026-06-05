@@ -7,6 +7,8 @@ import AppKit
  *   1. Confirm + run ffmpeg.
  *   2. After success, preview the new MP3 then decide what happens to the
  *      original (move to Trash or keep both).
+ * Shares EnhancementPhase / Primary+Secondary button views with Brighten +
+ * Loudness so the three modals feel like one family.
  */
 struct ConvertSheet: View {
     let track: Track
@@ -16,25 +18,17 @@ struct ConvertSheet: View {
     @EnvironmentObject var quality: QualityCache
     @Environment(\.dismiss) private var dismiss
 
-    private enum Phase { case preview, converting, converted, error }
-
-    @State private var phase: Phase = .preview
+    @State private var phase: EnhancementPhase = .preview
     @State private var errorMessage: String?
     @State private var showSpectrum = false
 
-    private static let accent = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
-
     private var sourceURL: URL { track.url }
-    private var targetURL: URL {
-        track.url.deletingPathExtension().appendingPathExtension("mp3")
-    }
+    private var targetURL: URL { sourceURL.changingExtension(to: "mp3") }
     private var targetExists: Bool {
-        phase == .preview &&
-        FileManager.default.fileExists(atPath: targetURL.path)
+        phase == .preview && FileManager.default.fileExists(atPath: targetURL.path)
     }
-
     private var convertedVerdict: QualityVerdict? {
-        guard phase == .converted else { return nil }
+        guard phase == .done else { return nil }
         return quality.verdict(for: targetURL)
     }
 
@@ -49,16 +43,16 @@ struct ConvertSheet: View {
                     .font(.caption).foregroundStyle(.yellow)
             }
 
-            if phase == .converted { verdictPanel }
+            if phase == .done { verdictPanel }
 
             Divider()
 
             VStack(spacing: 8) {
                 switch phase {
-                case .preview:    previewButtons
-                case .converting: convertingBody
-                case .converted:  convertedButtons
-                case .error:      errorButtons
+                case .preview: previewButtons
+                case .working: workingBody
+                case .done:    doneButtons
+                case .error:   RetryButton { phase = .preview; errorMessage = nil }
                 }
             }
         }
@@ -68,14 +62,12 @@ struct ConvertSheet: View {
             MacCloseButton(action: closeFromX)
         }
         .onChange(of: phase) { _, new in
-            if new == .converted { quality.requestVerdict(targetURL) }
+            if new == .done { quality.requestVerdict(targetURL) }
         }
         .sheet(isPresented: $showSpectrum) {
             SpectrumSheet(trackURL: targetURL)
         }
     }
-
-    // MARK: - Header
 
     @ViewBuilder
     private var header: some View {
@@ -83,81 +75,55 @@ struct ConvertSheet: View {
             switch phase {
             case .preview:
                 Image(systemName: "waveform.path.badge.plus")
-                    .font(.title2).foregroundStyle(Self.accent)
-                titleColumn(title: "Convert to MP3?", subtitle: sourceURL.lastPathComponent)
-            case .converting:
-                ProgressView().controlSize(.regular)
-                    .frame(width: 22, height: 22)
-                titleColumn(title: "Converting…", subtitle: sourceURL.lastPathComponent)
-            case .converted:
+                    .font(.title2).foregroundStyle(Theme.accent)
+                titleColumn("Convert to MP3?", sourceURL.lastPathComponent)
+            case .working:
+                ProgressView().controlSize(.regular).frame(width: 22, height: 22)
+                titleColumn("Converting…", sourceURL.lastPathComponent)
+            case .done:
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2).foregroundStyle(.green)
-                titleColumn(title: "Conversion Complete",
-                            subtitle: targetURL.lastPathComponent)
+                titleColumn("Conversion Complete", targetURL.lastPathComponent)
             case .error:
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.title2).foregroundStyle(.red)
-                titleColumn(title: "Convert Failed", subtitle: sourceURL.lastPathComponent)
+                titleColumn("Convert Failed", sourceURL.lastPathComponent)
             }
         }
     }
 
-    private func titleColumn(title: String, subtitle: String) -> some View {
+    private func titleColumn(_ title: String, _ subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(.headline)
             Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
         }
     }
 
-    // MARK: - Phase bodies
-
     private var previewButtons: some View {
-        Button(action: startConvert) {
-            Label("Convert to MP3", systemImage: "waveform.path.badge.plus")
-                .frame(maxWidth: .infinity).padding(.vertical, 6)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(Self.accent)
-        .disabled(targetExists)
+        PrimaryButton(title: "Convert to MP3",
+                      systemImage: "waveform.path.badge.plus",
+                      action: startConvert, disabled: targetExists)
     }
 
-    private var convertingBody: some View {
+    private var workingBody: some View {
         Text("Transcoding via ffmpeg…")
             .font(.caption).foregroundStyle(.secondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
     }
 
-    private var convertedButtons: some View {
+    private var doneButtons: some View {
         Group {
-            Button(action: trashOriginalAndClose) {
-                Label("Move Original to Trash", systemImage: "trash")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
+            PrimaryButton(title: "Move Original to Trash", systemImage: "trash",
+                          action: trashOriginalAndClose)
+            SecondaryButton(title: "Preview MP3", systemImage: "play.circle",
+                            action: previewInModulr)
+            SecondaryButton(title: "Show Spectrum", systemImage: "waveform.path") {
+                showSpectrum = true
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Self.accent)
-
-            Button(action: previewInModulr) {
-                Label("Preview MP3", systemImage: "play.circle")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
-            }
-            .buttonStyle(.bordered)
-
-            Button { showSpectrum = true } label: {
-                Label("Show Spectrum", systemImage: "waveform.path")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
-            }
-            .buttonStyle(.bordered)
-
-            Button(action: revealInFinder) {
-                Label("Show in Finder", systemImage: "folder")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
-            }
-            .buttonStyle(.bordered)
-
-            Button("Keep Both", action: keepBothAndClose)
-                .buttonStyle(.bordered)
-                .frame(maxWidth: .infinity)
+            SecondaryButton(title: "Show in Finder", systemImage: "folder",
+                            action: revealInFinder)
+            KeepBothButton(action: keepBothAndClose)
         }
     }
 
@@ -181,33 +147,20 @@ struct ConvertSheet: View {
         }
     }
 
-    private var errorButtons: some View {
-        Button {
-            phase = .preview
-            errorMessage = nil
-        } label: {
-            Label("Retry", systemImage: "arrow.clockwise")
-                .frame(maxWidth: .infinity).padding(.vertical, 6)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(Self.accent)
-    }
-
     // MARK: - Actions
 
     private func startConvert() {
-        phase = .converting
+        phase = .working
         errorMessage = nil
-        let source = sourceURL
         let target = targetURL
-        analyzer.convertToMP3(source) {
+        analyzer.convertToMP3(sourceURL) {
             DispatchQueue.main.async {
                 guard FileManager.default.fileExists(atPath: target.path) else {
                     errorMessage = "Convert failed. Check Console for ffmpeg output."
                     phase = .error
                     return
                 }
-                phase = .converted
+                phase = .done
             }
         }
     }
@@ -252,10 +205,10 @@ struct ConvertSheet: View {
 
     private func closeFromX() {
         switch phase {
-        case .preview:    dismiss()
-        case .converting: cancelRunning()
-        case .converted:  discardAndClose()
-        case .error:      dismiss()
+        case .preview: dismiss()
+        case .working: cancelRunning()
+        case .done:    discardAndClose()
+        case .error:   dismiss()
         }
     }
 }

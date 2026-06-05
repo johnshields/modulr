@@ -5,8 +5,8 @@ import AppKit
  * LoudnessSheet
  * Measures peak via ffmpeg, computes a safe-headroom boost, and writes a
  * `<stem>_loud` sibling. User previews, then either replaces the original
- * (trash + rename) or keeps both. Mirrors BrightenSheet exactly so the
- * enhancement modals feel like one feature family.
+ * (trash + rename) or keeps both. Shares state and buttons with BrightenSheet
+ * via EnhancementPhase + Primary/Secondary button views.
  */
 struct LoudnessSheet: View {
     let track: Track
@@ -16,21 +16,12 @@ struct LoudnessSheet: View {
     @EnvironmentObject var quality: QualityCache
     @Environment(\.dismiss) private var dismiss
 
-    private enum Phase { case preview, working, done, error }
-
-    @State private var phase: Phase = .preview
+    @State private var phase: EnhancementPhase = .preview
     @State private var errorMessage: String?
     @State private var gainSummary: String?
 
-    private static let accent = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
-
     private var sourceURL: URL { track.url }
-    private var targetURL: URL {
-        let dir = sourceURL.deletingLastPathComponent()
-        let stem = sourceURL.deletingPathExtension().lastPathComponent
-        return dir.appendingPathComponent("\(stem)_loud")
-            .appendingPathExtension(sourceURL.pathExtension)
-    }
+    private var targetURL: URL { sourceURL.sibling(suffix: "_loud") }
     private var targetExists: Bool {
         phase == .preview && FileManager.default.fileExists(atPath: targetURL.path)
     }
@@ -59,7 +50,7 @@ struct LoudnessSheet: View {
                 case .preview: previewButtons
                 case .working: workingBody
                 case .done:    doneButtons
-                case .error:   errorButtons
+                case .error:   RetryButton { phase = .preview; errorMessage = nil }
                 }
             }
         }
@@ -76,7 +67,7 @@ struct LoudnessSheet: View {
             switch phase {
             case .preview:
                 Image(systemName: "speaker.wave.3.fill")
-                    .font(.title2).foregroundStyle(Self.accent)
+                    .font(.title2).foregroundStyle(Theme.accent)
                 titleColumn("Normalise Loudness?", sourceURL.lastPathComponent)
             case .working:
                 ProgressView().controlSize(.regular).frame(width: 22, height: 22)
@@ -107,13 +98,9 @@ struct LoudnessSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, 2)
 
-            Button(action: startBoost) {
-                Label("Boost to Safe Peak", systemImage: "speaker.wave.3.fill")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Self.accent)
-            .disabled(targetExists)
+            PrimaryButton(title: "Boost to Safe Peak",
+                          systemImage: "speaker.wave.3.fill",
+                          action: startBoost, disabled: targetExists)
         }
     }
 
@@ -126,40 +113,15 @@ struct LoudnessSheet: View {
 
     private var doneButtons: some View {
         Group {
-            Button(action: replaceOriginal) {
-                Label("Replace Original with Boosted", systemImage: "arrow.triangle.2.circlepath")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Self.accent)
-
-            Button(action: previewBoosted) {
-                Label("Preview Boosted", systemImage: "play.circle")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
-            }
-            .buttonStyle(.bordered)
-
-            Button(action: revealBoosted) {
-                Label("Show in Finder", systemImage: "folder")
-                    .frame(maxWidth: .infinity).padding(.vertical, 6)
-            }
-            .buttonStyle(.bordered)
-
-            Button("Keep Both", action: finishAndDismiss)
-                .buttonStyle(.bordered)
-                .frame(maxWidth: .infinity)
+            PrimaryButton(title: "Replace Original with Boosted",
+                          systemImage: "arrow.triangle.2.circlepath",
+                          action: replaceOriginal)
+            SecondaryButton(title: "Preview Boosted",
+                            systemImage: "play.circle", action: previewBoosted)
+            SecondaryButton(title: "Show in Finder",
+                            systemImage: "folder", action: revealBoosted)
+            KeepBothButton(action: finishAndDismiss)
         }
-    }
-
-    private var errorButtons: some View {
-        Button {
-            phase = .preview; errorMessage = nil
-        } label: {
-            Label("Retry", systemImage: "arrow.clockwise")
-                .frame(maxWidth: .infinity).padding(.vertical, 6)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(Self.accent)
     }
 
     // MARK: - Actions
@@ -170,18 +132,15 @@ struct LoudnessSheet: View {
         let target = targetURL
         analyzer.boostFileSibling(sourceURL) {
             DispatchQueue.main.async {
-                // Parse the analyzer log for the BOOSTED line so we can show
-                // the user how much gain was added.
                 let boostedLine = analyzer.log.last(where: { $0.hasPrefix("BOOSTED:") })
                 if FileManager.default.fileExists(atPath: target.path) {
-                    gainSummary = boostedLine?.replacingOccurrences(of: "BOOSTED:", with: "Gain applied:")
+                    gainSummary = boostedLine?
+                        .replacingOccurrences(of: "BOOSTED:", with: "Gain applied:")
                     phase = .done
                     return
                 }
-                // No sibling produced — either already loud or measure failed.
-                if let plan = analyzer.log.last(where: { $0.contains("already loud") }) {
+                if analyzer.log.contains(where: { $0.contains("already loud") }) {
                     errorMessage = "Track is already near peak — no boost applied."
-                    _ = plan
                 } else {
                     errorMessage = "Boost failed. Check Console for ffmpeg output."
                 }
