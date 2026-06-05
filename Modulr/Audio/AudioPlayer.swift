@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import CoreAudio
 import Combine
 
 /**
@@ -71,8 +72,79 @@ final class AudioPlayer: ObservableObject {
         engine.connect(varispeed, to: timePitch, format: nil)
         engine.connect(timePitch, to: eq, format: nil)
         engine.connect(eq, to: engine.mainMixerNode, format: nil)
+        bindOutputToDefaultDevice()
         installLevelTap()
         try? engine.start()
+        observeRouteChanges()
+    }
+
+    /**
+     * macOS AVAudioEngine does NOT follow the system default output device when
+     * it changes (e.g. user selects AirPlay). Listen to the CoreAudio default-device
+     * property + retarget the engine's HAL output unit explicitly.
+     * Also listen for AVAudioEngineConfigurationChange as a fallback (fires when
+     * the current device disappears entirely).
+     */
+    private func observeRouteChanges() {
+        NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: engine,
+            queue: .main
+        ) { [weak self] _ in
+            self?.rebindOutputAndRestart()
+        }
+        installDefaultDeviceListener()
+    }
+
+    private func installDefaultDeviceListener() {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            DispatchQueue.main
+        ) { [weak self] _, _ in
+            self?.rebindOutputAndRestart()
+        }
+    }
+
+    private func currentDefaultOutputDevice() -> AudioDeviceID? {
+        var deviceID: AudioDeviceID = 0
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address, 0, nil, &size, &deviceID
+        )
+        return status == noErr && deviceID != 0 ? deviceID : nil
+    }
+
+    private func bindOutputToDefaultDevice() {
+        guard let deviceID = currentDefaultOutputDevice() else { return }
+        do {
+            try engine.outputNode.auAudioUnit.setDeviceID(deviceID)
+        } catch {
+            print("AudioPlayer: bind output device failed: \(error)")
+        }
+    }
+
+    private func rebindOutputAndRestart() {
+        let wasPlaying = isPlaying
+        engine.stop()
+        bindOutputToDefaultDevice()
+        do {
+            try engine.start()
+            if wasPlaying { playerNode.play() }
+        } catch {
+            print("AudioPlayer: restart after route change failed: \(error)")
+        }
     }
 
     /**

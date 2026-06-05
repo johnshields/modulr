@@ -190,6 +190,8 @@ struct TransportView: View {
             Spacer()
 
             HStack(spacing: 8) {
+                OutputDeviceMenu()
+                    .frame(width: 22, height: 22)
                 Image(systemName: player.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                     .foregroundStyle(.white.opacity(0.7))
                     .font(.caption)
