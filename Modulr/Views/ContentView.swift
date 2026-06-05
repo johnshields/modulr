@@ -57,6 +57,10 @@ struct ContentView: View {
         .onAppear {
             NowPlaying.shared.setup(player: player, onNext: nextTrack, onPrev: prevTrack)
             installSpacebarMonitor(player: player)
+            player.onPlaybackFinished = { [weak player] in
+                guard let _ = player else { return }
+                nextTrack()
+            }
         }
         .onOpenURL { url in
             handleOpenedFile(url)

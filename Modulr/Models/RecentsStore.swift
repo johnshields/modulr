@@ -8,6 +8,7 @@ final class RecentsStore {
     private let defaults = UserDefaults.standard
     private let kLastFolder = "modulr.lastFolder"
     private let kRecents = "modulr.recents"
+    private let kFavouriteFolders = "modulr.favouriteFolders"
     private let maxRecents = 10
 
     var lastFolder: URL? {
@@ -33,5 +34,16 @@ final class RecentsStore {
         if list.count > maxRecents { list = Array(list.prefix(maxRecents)) }
         defaults.set(list.map(\.path), forKey: kRecents)
         return list
+    }
+
+    func loadFavouriteFolders() -> [URL] {
+        let paths = defaults.stringArray(forKey: kFavouriteFolders) ?? []
+        return paths
+            .map { URL(fileURLWithPath: $0) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    func saveFavouriteFolders(_ urls: [URL]) {
+        defaults.set(urls.map(\.path), forKey: kFavouriteFolders)
     }
 }

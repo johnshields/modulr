@@ -15,13 +15,28 @@ final class Library: ObservableObject {
     @Published var tracks: [Track] = []
     @Published var favorites: Set<UUID> = []
     @Published var recents: [URL] = []
+    @Published var favouriteFolders: [URL] = []
     @Published var currentFolder: URL?
 
     private let store = RecentsStore()
 
     init() {
         recents = store.loadRecents()
+        favouriteFolders = store.loadFavouriteFolders()
         if let url = store.lastFolder { openFolder(url) }
+    }
+
+    func isFavouriteFolder(_ url: URL) -> Bool {
+        favouriteFolders.contains(url)
+    }
+
+    func toggleFavouriteFolder(_ url: URL) {
+        if let idx = favouriteFolders.firstIndex(of: url) {
+            favouriteFolders.remove(at: idx)
+        } else {
+            favouriteFolders.append(url)
+        }
+        store.saveFavouriteFolders(favouriteFolders)
     }
 
     func openFolder(_ url: URL) {

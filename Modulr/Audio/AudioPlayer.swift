@@ -26,6 +26,11 @@ final class AudioPlayer: ObservableObject {
     @Published var isMuted = false { didSet { engine.mainMixerNode.outputVolume = isMuted ? 0 : volume } }
     @Published var tempoRate: Float = 1.0 { didSet { applyRateAndPitch() } }
     @Published var pitchCents: Float = 0.0 { didSet { applyRateAndPitch() } }
+
+    /// Fires on the main queue when the currently-scheduled file finishes playing
+    /// naturally (not when stopped, seeked or replaced). Owner wires this to
+    /// the next-track advancer.
+    var onPlaybackFinished: (() -> Void)?
     let pitchMode: PitchMode = .independent
 
     enum PitchMode: String, CaseIterable {
@@ -56,6 +61,9 @@ final class AudioPlayer: ObservableObject {
     private var audioFile: AVAudioFile?
     private var displayLink: Timer?
     private var seekOffset: TimeInterval = 0
+    /// One-shot guard so `onPlaybackFinished` fires once per track even if the
+    /// playhead clock briefly oscillates around the duration cutoff.
+    private var didFireFinish = false
 
     init() {
         engine.attach(playerNode)
@@ -222,6 +230,7 @@ final class AudioPlayer: ObservableObject {
             currentTime = 0
             resetTempoAndPitch()
             playerNode.stop()
+            didFireFinish = false
             playerNode.scheduleFile(file, at: nil)
         } catch {
             print("load fail: \(error)")
@@ -241,6 +250,7 @@ final class AudioPlayer: ObservableObject {
         guard frameCount > 0 else { return }
 
         playerNode.stop()
+        didFireFinish = false
         seekOffset = target
         playerNode.scheduleSegment(file, startingFrame: startFrame, frameCount: frameCount, at: nil)
         currentTime = target
@@ -277,7 +287,14 @@ final class AudioPlayer: ObservableObject {
         displayLink = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             guard let self, let nodeTime = self.playerNode.lastRenderTime,
                   let playerTime = self.playerNode.playerTime(forNodeTime: nodeTime) else { return }
-            self.currentTime = self.seekOffset + Double(playerTime.sampleTime) / playerTime.sampleRate
+            let now = self.seekOffset + Double(playerTime.sampleTime) / playerTime.sampleRate
+            self.currentTime = now
+            // Natural end of track: fire once, let owner advance via onPlaybackFinished.
+            if !self.didFireFinish, self.duration > 0, now >= self.duration - 0.15 {
+                self.didFireFinish = true
+                self.isPlaying = false
+                self.onPlaybackFinished?()
+            }
         }
     }
 }
