@@ -5,6 +5,7 @@ struct TrackListView: View {
     @EnvironmentObject var library: Library
     @EnvironmentObject var analyzer: Analyzer
     @EnvironmentObject var player: AudioPlayer
+    @EnvironmentObject var quality: QualityCache
     @Binding var showAnalyze: Bool
     @Binding var editingOrder: Bool
     let onPlay: (URL) -> Void
@@ -12,6 +13,7 @@ struct TrackListView: View {
     @State private var selection: Track.ID?
     @State private var sortOrder: [KeyPathComparator<Track>] = [.init(\.trackNumberSort)]
     @State private var tagTrack: Track?
+    @State private var spectrumTrack: Track?
     @State private var deleteTrack: Track?
     @State private var search = ""
 
@@ -60,6 +62,7 @@ struct TrackListView: View {
         }
         .tint(Self.accent)
         .sheet(item: $tagTrack) { t in TagEditSheet(track: t).environmentObject(library) }
+        .sheet(item: $spectrumTrack) { t in SpectrumSheet(trackURL: t.url) }
         .sheet(item: $deleteTrack) { t in
             DeleteSheet(
                 track: t,
@@ -186,9 +189,16 @@ struct TrackListView: View {
                             .font(.caption.monospaced())
                             .foregroundStyle(.secondary)
                     }
+                    if let v = quality.verdicts[t.url] {
+                        Text(v.label.uppercased())
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(v.color)
+                            .help(v.detail)
+                    }
                 }
+                .onAppear { quality.requestVerdict(t.url) }
             }
-            .width(min: 80, ideal: 100, max: 130)
+            .width(min: 130, ideal: 170, max: 220)
         }
         .contextMenu(forSelectionType: Track.ID.self) { ids in
             if let id = ids.first, let t = sorted.first(where: { $0.id == id }) {
@@ -289,6 +299,9 @@ struct TrackListView: View {
             showAnalyze = true
         } label: { Label("Analyse BPM/Key", systemImage: "waveform.badge.magnifyingglass") }
             .disabled(!TagIO.supportsTags(t.url))
+        Button { spectrumTrack = t } label: {
+            Label("Show Spectrum", systemImage: "waveform.path")
+        }
         Divider()
         Button {
             NSWorkspace.shared.activateFileViewerSelecting([t.url])

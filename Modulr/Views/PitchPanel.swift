@@ -16,11 +16,11 @@ struct PitchPanel: View {
     }
 
     private var summary: String {
-        guard let t = currentTrack else { return "—" }
+        guard let t = currentTrack else { return "" }
         var parts: [String] = []
         if let b = t.bpm { parts.append("\(b) BPM") }
         if let k = t.key { parts.append(KeyNormalizer.toMusical(k)) }
-        return parts.isEmpty ? "—" : parts.joined(separator: " · ")
+        return parts.isEmpty ? "" : parts.joined(separator: " · ")
     }
 
     var body: some View {

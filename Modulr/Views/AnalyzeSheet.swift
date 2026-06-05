@@ -76,7 +76,7 @@ struct AnalyzeSheet: View {
     private var progressSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(analyzer.current.isEmpty ? "—" : analyzer.current)
+                Text(analyzer.current.isEmpty ? "" : analyzer.current)
                     .font(.system(.caption, design: .monospaced))
                     .lineLimit(1)
                     .truncationMode(.middle)

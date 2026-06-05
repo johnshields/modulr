@@ -13,7 +13,7 @@ struct Track: Identifiable, Hashable {
     var tags: [String] = []
 
     var trackNumberSort: Int { trackNumber ?? Int.max }
-    var trackNumberDisplay: String { trackNumber.map(String.init) ?? "—" }
+    var trackNumberDisplay: String { trackNumber.map(String.init) ?? "" }
 
     var fileType: String { url.pathExtension.uppercased() }
     var typeAndBitrate: String {
@@ -21,16 +21,16 @@ struct Track: Identifiable, Hashable {
         return "\(fileType) · \(kbps)"
     }
     var bitrateDisplay: String {
-        bitrate.map { "\($0) kbps" } ?? "—"
+        bitrate.map { "\($0) kbps" } ?? ""
     }
     var bpmSort: Int { bpm ?? 0 }
-    var bpmDisplay: String { bpm.map(String.init) ?? "—" }
+    var bpmDisplay: String { bpm.map(String.init) ?? "" }
     var keyDisplay: String {
-        guard let k = key else { return "—" }
+        guard let k = key else { return "" }
         return KeyNormalizer.toMusical(k)
     }
     var keySort: String { key ?? "" }
-    var artistDisplay: String { artist ?? "—" }
+    var artistDisplay: String { artist ?? "" }
     var artistSort: String { artist ?? "" }
 
     /**

@@ -9,6 +9,7 @@ struct ContentView: View {
     @EnvironmentObject var player: AudioPlayer
     @StateObject private var library = Library()
     @StateObject private var analyzer = Analyzer()
+    @StateObject private var quality = QualityCache()
     @State private var showAnalyze = false
     @State private var artwork: NSImage?
     @State private var editingOrder = false
@@ -44,6 +45,7 @@ struct ContentView: View {
                 )
                     .environmentObject(library)
                     .environmentObject(analyzer)
+                    .environmentObject(quality)
             }
         }
         .sheet(isPresented: $showAnalyze) {
