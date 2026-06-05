@@ -114,16 +114,15 @@ struct ConvertSheet: View {
 
     private var doneButtons: some View {
         Group {
-            PrimaryButton(title: "Move Original to Trash", systemImage: "trash",
-                          action: trashOriginalAndClose)
+            KeepBothButton(action: keepBothAndClose)
+            DestructiveButton(title: "Move Original to Trash",
+                              systemImage: "trash",
+                              action: trashOriginalAndClose)
             SecondaryButton(title: "Preview MP3", systemImage: "play.circle",
                             action: previewInModulr)
             SecondaryButton(title: "Show Spectrum", systemImage: "waveform.path") {
                 showSpectrum = true
             }
-            SecondaryButton(title: "Show in Finder", systemImage: "folder",
-                            action: revealInFinder)
-            KeepBothButton(action: keepBothAndClose)
         }
     }
 
@@ -170,11 +169,7 @@ struct ConvertSheet: View {
         player.play()
     }
 
-    private func revealInFinder() {
-        NSWorkspace.shared.activateFileViewerSelecting([targetURL])
-    }
-
-    private func trashOriginalAndClose() {
+private func trashOriginalAndClose() {
         do {
             try FileManager.default.trashItem(at: sourceURL, resultingItemURL: nil)
         } catch {

@@ -113,14 +113,12 @@ struct LoudnessSheet: View {
 
     private var doneButtons: some View {
         Group {
-            PrimaryButton(title: "Replace Original with Boosted",
-                          systemImage: "arrow.triangle.2.circlepath",
-                          action: replaceOriginal)
+            KeepBothButton(action: finishAndDismiss)
+            DestructiveButton(title: "Replace Original with Boosted",
+                              systemImage: "arrow.triangle.2.circlepath",
+                              action: replaceOriginal)
             SecondaryButton(title: "Preview Boosted",
                             systemImage: "play.circle", action: previewBoosted)
-            SecondaryButton(title: "Show in Finder",
-                            systemImage: "folder", action: revealBoosted)
-            KeepBothButton(action: finishAndDismiss)
         }
     }
 
@@ -154,11 +152,7 @@ struct LoudnessSheet: View {
         player.play()
     }
 
-    private func revealBoosted() {
-        NSWorkspace.shared.activateFileViewerSelecting([targetURL])
-    }
-
-    private func replaceOriginal() {
+private func replaceOriginal() {
         let source = sourceURL
         let boosted = targetURL
         do {

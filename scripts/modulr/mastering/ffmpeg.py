@@ -55,10 +55,10 @@ class FfmpegRunner:
             return None, err
         return tmp.name, None
 
-    def transcode(self, src, dst, *, filters=None, codec=None, bitrate=None, quality=None):
+    def transcode(self, src, dst, *, filters=None, codec=None, bitrate=None,
+                  quality=None, extra_args=None):
         """Run a single ffmpeg invocation src -> dst with optional filter chain,
-        codec override and bitrate. Used by Convert and Brighten which write to
-        a deliberate sibling path rather than a temp file.
+        codec override, bitrate and codec-specific extras (e.g. LAME -cutoff).
         Returns (ok: bool, err_text: Optional[str]).
         """
         cmd = [self.binary(), "-y", "-hide_banner", "-loglevel", "error", "-i", src]
@@ -69,6 +69,8 @@ class FfmpegRunner:
             cmd += ["-b:a", bitrate]
         if quality is not None:
             cmd += ["-q:a", str(quality)]
+        if extra_args:
+            cmd += list(extra_args)
         cmd += ["-map_metadata", "0", "-id3v2_version", "3", dst]
         proc = subprocess.run(cmd, stderr=subprocess.PIPE)
         if proc.returncode != 0:

@@ -47,9 +47,27 @@ struct KeepBothButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button("Keep Both", action: action)
-            .buttonStyle(.bordered)
-            .frame(maxWidth: .infinity)
+        Button(action: action) {
+            Label("Keep Both", systemImage: "doc.on.doc")
+                .frame(maxWidth: .infinity).padding(.vertical, 6)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(Theme.accent)
+    }
+}
+
+struct DestructiveButton: View {
+    let title: String
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(role: .destructive, action: action) {
+            Label(title, systemImage: systemImage)
+                .frame(maxWidth: .infinity).padding(.vertical, 6)
+        }
+        .buttonStyle(.bordered)
+        .tint(.red)
     }
 }
 

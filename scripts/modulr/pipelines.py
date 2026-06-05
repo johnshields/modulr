@@ -236,12 +236,21 @@ class ConvertPipeline(_BasePipeline):
             log_error(f"{os.path.basename(dst)} already exists"); return
 
         log(f"CONVERTING: {log_label} -> {os.path.basename(dst)} @ {self.BITRATE}")
+        # -cutoff 22050 disables LAME's default ~19 kHz lowpass so the MP3
+        # keeps the source's full top-end (matters for WAV/m4a -> MP3 fidelity
+        # scoring). Skipping -compression_level since ffmpeg's wrapper inverts
+        # LAME's quality scale and the default (5) is already good.
         ok, err = self._ffmpeg.transcode(
-            src_path, dst, codec="libmp3lame", bitrate=self.BITRATE,
+            src_path, dst,
+            codec="libmp3lame", bitrate=self.BITRATE,
+            extra_args=["-cutoff", "22050"],
         )
         if not ok:
             log_error(f"ffmpeg: {(err or '')[:200]}")
             return
+        # Carry tags + artwork — ffmpeg -map_metadata 0 is unreliable for APIC
+        # across format boundaries (esp. wav/m4a -> mp3).
+        self.tag_io.carry_metadata(src_path, dst)
         log(f"CONVERTED: {os.path.basename(dst)}")
         if delete_original:
             try:
@@ -292,5 +301,6 @@ class BrightenPipeline(_BasePipeline):
         if not ok:
             log_error(f"ffmpeg: {(err or '')[:200]}")
             log_done(); return
+        self.tag_io.carry_metadata(src_path, dst)
         log(f"BRIGHTENED: {os.path.basename(dst)}")
         log_done()

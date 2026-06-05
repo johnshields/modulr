@@ -59,6 +59,8 @@ class _Backend(ABC):
     @abstractmethod
     def set_artwork(self, path, data, mime): ...
     @abstractmethod
+    def read_artwork(self, path) -> tuple: ...
+    @abstractmethod
     def remove_artwork(self, path): ...
     @abstractmethod
     def rewrite_normalised_key(self, path, musical): ...
@@ -161,6 +163,14 @@ class _ID3Backend(_Backend):
         audio.tags.delall("APIC")
         audio.tags.add(APIC(encoding=3, mime=mime, type=3, desc="Cover", data=data))
         self._save(audio)
+
+    def read_artwork(self, path):
+        audio = self._open(path)
+        if audio is None or audio.tags is None: return None, None
+        pics = audio.tags.getall("APIC")
+        if not pics: return None, None
+        pic = pics[0]
+        return pic.data, (pic.mime or "image/jpeg")
 
     def remove_artwork(self, path):
         audio = self._open(path)
@@ -320,6 +330,15 @@ class _MP4Backend(_Backend):
         audio[_MP4_COVER_ATOM] = [MP4Cover(data, imageformat=fmt)]
         self._save(audio)
 
+    def read_artwork(self, path):
+        audio = self._open(path)
+        if audio is None: return None, None
+        covers = audio.get(_MP4_COVER_ATOM) or []
+        if not covers: return None, None
+        cov = covers[0]
+        mime = "image/png" if cov.imageformat == MP4Cover.FORMAT_PNG else "image/jpeg"
+        return bytes(cov), mime
+
     def remove_artwork(self, path):
         audio = self._open(path)
         if audio is None: return
@@ -395,6 +414,67 @@ class TagIO:
         if b is None: log_error(path); return
         b.set_tags(path, kvs)
         log(f"TAGS_SET: {os.path.basename(path)}")
+
+    def carry_metadata(self, src, dst):
+        """Mirror text frames + artwork from src to dst after an ffmpeg encode.
+        Useful for cross-format conversions where -map_metadata 0 is unreliable
+        (especially APIC <-> covr) and for re-encode siblings (_bright, _loud).
+        """
+        src_b = self._backend(src)
+        dst_b = self._backend(dst)
+        if src_b is None or dst_b is None:
+            return
+
+        # Text frames — read pair (key+bpm) and per-frame names from source.
+        key, bpm = src_b.read_pair(src)
+        artist = src_b.read_artist(src)
+        kvs = {}
+        if key: kvs["key"] = key
+        if bpm: kvs["bpm"] = bpm
+        if artist: kvs["artist"] = artist
+        for frame, atom in (("title", "title"), ("album", "album"),
+                             ("genre", "genre"), ("year", "year"),
+                             ("tracknum", "tracknum")):
+            value = self._read_frame_text(src_b, src, frame)
+            if value is not None:
+                kvs[frame] = value
+        if kvs:
+            dst_b.set_tags(dst, kvs)
+
+        # Artwork — backend-aware read + write.
+        data, mime = src_b.read_artwork(src)
+        if data and mime:
+            dst_b.set_artwork(dst, data, mime)
+
+    @staticmethod
+    def _read_frame_text(backend, path, frame):
+        """Backend-agnostic single-frame read for the fields covered by
+        FRAME_MAP / _MP4_ATOMS. Returns the raw string value or None.
+        """
+        audio = backend._open(path)
+        if audio is None: return None
+        if isinstance(backend, _ID3Backend):
+            cls = FRAME_MAP.get(frame)
+            if cls is None or audio.tags is None: return None
+            tag = audio.tags.get(cls.__name__)
+            if not tag or not tag.text: return None
+            try: return str(tag.text[0]) or None
+            except Exception: return None
+        if isinstance(backend, _MP4Backend):
+            atom, kind = backend._atom_for(frame)
+            if atom is None: return None
+            v = audio.get(atom)
+            if not v: return None
+            if kind == "trkn":
+                pair = v[0]
+                try:
+                    n, total = pair
+                    return f"{n}/{total}" if total else str(n)
+                except Exception:
+                    return str(pair)
+            try: return str(v[0]) or None
+            except Exception: return None
+        return None
 
     def set_artwork(self, path, image_path, mime):
         b = self._backend(path)

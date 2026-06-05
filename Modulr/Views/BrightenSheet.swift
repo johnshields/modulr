@@ -124,17 +124,15 @@ struct BrightenSheet: View {
 
     private var doneButtons: some View {
         Group {
-            PrimaryButton(title: "Replace Original with Brightened",
-                          systemImage: "arrow.triangle.2.circlepath",
-                          action: replaceOriginal)
+            KeepBothButton(action: finishAndDismiss)
+            DestructiveButton(title: "Replace Original with Brightened",
+                              systemImage: "arrow.triangle.2.circlepath",
+                              action: replaceOriginal)
             SecondaryButton(title: "Preview Brightened",
                             systemImage: "play.circle", action: previewBright)
             SecondaryButton(title: "Show Spectrum", systemImage: "waveform.path") {
                 showSpectrum = true
             }
-            SecondaryButton(title: "Show in Finder",
-                            systemImage: "folder", action: revealBright)
-            KeepBothButton(action: finishAndDismiss)
         }
     }
 
@@ -234,11 +232,7 @@ struct BrightenSheet: View {
         player.play()
     }
 
-    private func revealBright() {
-        NSWorkspace.shared.activateFileViewerSelecting([targetURL])
-    }
-
-    /// Trash the original then rename the _bright sibling onto its path so the
+/// Trash the original then rename the _bright sibling onto its path so the
     /// rest of the library (Rekordbox links, recents, playlists) keeps pointing
     /// at the same filename — but with brighter audio.
     private func replaceOriginal() {
