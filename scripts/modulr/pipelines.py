@@ -10,7 +10,9 @@ import re
 
 from .analysis.analyser import TrackAnalyser, default_analyser
 from .logger import log, log_done, log_error, log_progress
-from .metadata.files import list_mp3s, preserve_nnn_prefix
+from .metadata.files import list_audio, preserve_nnn_prefix
+
+_TAG_EXTS = (".mp3", ".m4a", ".wav", ".mp4", ".aac")
 from .metadata.tags import TagIO
 
 
@@ -21,7 +23,7 @@ class _BasePipeline:
         self.tag_io = tag_io or TagIO()
 
     def _iterate_folder(self, folder, handler, **kwargs):
-        files = list_mp3s(folder)
+        files = list_audio(folder, exts=_TAG_EXTS)
         log(f"TOTAL: {len(files)}")
         for i, path in enumerate(files, 1):
             handler(path, idx=i, total=len(files), **kwargs)
@@ -103,7 +105,8 @@ class ResetPipeline(_BasePipeline):
         if keep_numbers:
             stem = preserve_nnn_prefix(filename, stem)
 
-        new_name = f"{stem}.mp3"
+        ext = os.path.splitext(filename)[1].lower() or ".mp3"
+        new_name = f"{stem}{ext}"
         new_path = os.path.join(os.path.dirname(path), new_name)
         if new_path == path:
             self.tag_io.sync_title_to_filename(path)
@@ -148,7 +151,7 @@ class SyncFilenamePipeline(_BasePipeline):
     """Append _KEY_BPM suffix to filenames using existing TKEY/TBPM tags."""
 
     def run(self, folder):
-        files = list_mp3s(folder)
+        files = list_audio(folder, exts=_TAG_EXTS)
         log(f"TOTAL: {len(files)}")
         for i, path in enumerate(files, 1):
             name = os.path.basename(path)
@@ -162,11 +165,12 @@ class SyncFilenamePipeline(_BasePipeline):
             log(f"SKIP: {name} (missing tags)")
             return
         suffix = f"_{key}_{bpm}"
-        if name[:-4].lower().endswith(suffix.lower()):
+        stem_no_ext, ext = os.path.splitext(name)
+        if stem_no_ext.lower().endswith(suffix.lower()):
             log(f"OK: {name} (already has suffix)")
             return
         clean = self.tag_io.build_clean_stem(path, name)
-        new_name = preserve_nnn_prefix(name, f"{clean}{suffix}.mp3")
+        new_name = preserve_nnn_prefix(name, f"{clean}{suffix}{ext or '.mp3'}")
         new_path = os.path.join(os.path.dirname(path), new_name)
         if new_path == path:
             self.tag_io.sync_title_to_filename(path)

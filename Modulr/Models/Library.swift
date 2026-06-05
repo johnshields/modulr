@@ -49,7 +49,7 @@ final class Library: ObservableObject {
         guard let idx = tracks.firstIndex(where: { $0.id == id }) else { return }
         let newURL = try TagService.rename(tracks[idx].url, to: newName)
         let stem = newURL.deletingPathExtension().lastPathComponent
-        if TagService.isMP3(newURL) { TagService.setTitle(newURL, title: stem) }
+        if TagService.supportsTags(newURL) { TagService.setTitle(newURL, title: stem) }
         tracks[idx] = tracks[idx].with(url: newURL, title: stem)
     }
 
@@ -102,33 +102,16 @@ final class Library: ObservableObject {
     }
 
     /**
-     * Renumber files: prepend NNN_ prefix in given order, sync ID3 title to filename.
-     * Calls onProgress(done, total) after each file is processed.
+     * Renumber via track-number tag only (TRCK / trkn). No filename change.
+     * Rekordbox + Serato + iTunes honour this, so library paths stay intact.
      */
-    func renumber(orderedIDs: [UUID], padding: Int = 3, onProgress: ((Int, Int) -> Void)? = nil) throws {
-        var updated: [Track] = tracks
+    func renumberByTag(orderedIDs: [UUID], onProgress: ((Int, Int) -> Void)? = nil) {
         let total = orderedIDs.count
         for (i, id) in orderedIDs.enumerated() {
-            guard let idx = updated.firstIndex(where: { $0.id == id }) else { continue }
-            let url = updated[idx].url
-            let stem = url.deletingPathExtension().lastPathComponent
-            let strippedStem = stem.replacingOccurrences(
-                of: #"^\d{2,4}_"#,
-                with: "",
-                options: .regularExpression
-            )
-            let prefix = String(format: "%0\(padding)d", i + 1)
-            let newName = "\(prefix)_\(strippedStem)"
-            let newURL = url.deletingLastPathComponent()
-                .appendingPathComponent(newName)
-                .appendingPathExtension(url.pathExtension)
-            if newURL != url {
-                try FileManager.default.moveItem(at: url, to: newURL)
-            }
-            if TagService.isMP3(newURL) { TagService.setTitle(newURL, title: newName) }
-            updated[idx] = updated[idx].with(url: newURL, title: newName)
+            guard let idx = tracks.firstIndex(where: { $0.id == id }) else { continue }
+            TagService.setTrackNumber(tracks[idx].url, index: i + 1, total: total)
             onProgress?(i + 1, total)
         }
-        tracks = updated
     }
+
 }

@@ -1,5 +1,5 @@
 """Static lookup tables used across modules."""
-from mutagen.id3 import TIT2, TPE1, TALB, TCON, TBPM, TKEY, TDRC
+from mutagen.id3 import TIT2, TPE1, TALB, TCON, TBPM, TKEY, TDRC, TRCK
 
 
 # (pitch_class, mode) -> Camelot wheel label. major=1, minor=0
@@ -61,6 +61,7 @@ MADMOM_KEY_TO_MUSICAL = {
 FRAME_MAP = {
     "title": TIT2, "artist": TPE1, "album": TALB,
     "genre": TCON, "bpm": TBPM, "year": TDRC, "key": TKEY,
+    "tracknum": TRCK,
 }
 
 AUDIO_EXT_LOUDNESS = (".mp3", ".m4a", ".wav", ".aac")

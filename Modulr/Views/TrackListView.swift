@@ -17,7 +17,6 @@ struct TrackListView: View {
     @State private var editMode = false
     @State private var editItems: [Track] = []
     @State private var dragID: UUID?
-    @State private var padding: Int = 3
     @State private var applying = false
     @State private var applyProgress: (done: Int, total: Int) = (0, 0)
     @State private var artCache: [URL: NSImage] = [:]
@@ -107,11 +106,6 @@ struct TrackListView: View {
             }
 
             if editMode {
-                Picker("", selection: $padding) {
-                    Text("01").tag(2); Text("001").tag(3); Text("0001").tag(4)
-                }
-                .pickerStyle(.segmented).fixedSize()
-
                 Menu("Sort") {
                     Button("BPM ascending") { withAnimation { editItems.sort { ($0.bpm ?? 0) < ($1.bpm ?? 0) } } }
                     Button("BPM descending") { withAnimation { editItems.sort { ($0.bpm ?? 0) > ($1.bpm ?? 0) } } }
@@ -243,7 +237,7 @@ struct TrackListView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 16)
                 .cursor(.openHand)
-            Text(String(format: "%0\(padding)d", idx + 1))
+            Text(String(format: "%03d", idx + 1))
                 .font(.system(.body, design: .monospaced)).foregroundStyle(.secondary)
                 .frame(minWidth: 44, alignment: .leading)
             ZStack {
@@ -282,12 +276,12 @@ struct TrackListView: View {
     private func menu(for t: Track) -> some View {
         Button { play(t) } label: { Label("Play", systemImage: "play.fill") }
         Button { tagTrack = t } label: { Label("Edit Track Info…", systemImage: "info.circle") }
-            .disabled(!TagIO.isMP3(t.url))
+            .disabled(!TagIO.supportsTags(t.url))
         Button {
             analyzer.analyzeFile(t.url) {}
             showAnalyze = true
         } label: { Label("Analyse BPM/Key", systemImage: "waveform.badge.magnifyingglass") }
-            .disabled(!TagIO.isMP3(t.url))
+            .disabled(!TagIO.supportsTags(t.url))
         Divider()
         Button {
             NSWorkspace.shared.activateFileViewerSelecting([t.url])
@@ -310,7 +304,7 @@ struct TrackListView: View {
         let remainingIDs = sorted.filter { $0.id != t.id }.map(\.id)
         do {
             try library.deleteTrack(t.id)
-            try library.renumber(orderedIDs: remainingIDs, padding: padding)
+            library.renumberByTag(orderedIDs: remainingIDs)
         } catch {
             print("delete+renumber fail: \(error)")
         }
@@ -318,12 +312,11 @@ struct TrackListView: View {
 
     private func applyEdit() {
         let ids = editItems.map(\.id)
-        let pad = padding
         let lib = library
         applyProgress = (0, ids.count)
         applying = true
         DispatchQueue.global(qos: .userInitiated).async {
-            try? lib.renumber(orderedIDs: ids, padding: pad) { done, total in
+            lib.renumberByTag(orderedIDs: ids) { done, total in
                 DispatchQueue.main.async { applyProgress = (done, total) }
             }
             DispatchQueue.main.async {

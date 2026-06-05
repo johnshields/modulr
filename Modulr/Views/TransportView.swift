@@ -8,8 +8,8 @@ struct TransportView: View {
 
     private static let accent = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
 
-    private var currentMP3: URL? {
-        guard let u = player.currentURL, TagIO.isMP3(u) else { return nil }
+    private var currentTaggable: URL? {
+        guard let u = player.currentURL, TagIO.supportsTags(u) else { return nil }
         return u
     }
 
@@ -54,13 +54,13 @@ struct TransportView: View {
             Menu {
                 Section("Analyse") {
                     Button {
-                        guard let u = currentMP3 else { return }
+                        guard let u = currentTaggable else { return }
                         analyzer.analyzeFile(u, rename: analyzer.renameAfter) {}
                         showAnalyze = true
                     } label: {
                         Label("Current Track", systemImage: "music.note")
                     }
-                    .disabled(currentMP3 == nil)
+                    .disabled(currentTaggable == nil)
 
                     Button {
                         guard let cur = library.currentFolder else { return }
@@ -132,21 +132,21 @@ struct TransportView: View {
             Menu {
                 Section("Current Track") {
                     Button {
-                        guard let u = currentMP3 else { return }
+                        guard let u = currentTaggable else { return }
                         analyzer.normalizeFilePreview(u) {}
                         showAnalyze = true
                     } label: {
                         Label("Preview Gain", systemImage: "eye")
                     }
-                    .disabled(currentMP3 == nil)
+                    .disabled(currentTaggable == nil)
                     Button {
-                        guard let u = currentMP3 else { return }
+                        guard let u = currentTaggable else { return }
                         analyzer.normalizeFileApply(u) {}
                         showAnalyze = true
                     } label: {
                         Label("Boost Safe", systemImage: "wand.and.stars")
                     }
-                    .disabled(currentMP3 == nil)
+                    .disabled(currentTaggable == nil)
                 }
                 Section("Whole Folder") {
                     Button {
