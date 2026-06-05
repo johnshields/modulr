@@ -16,6 +16,18 @@ struct QualityVerdict: Hashable {
         color: .gray,
         detail: "Not enough headroom in the source to score."
     )
+
+    /// Higher rank = better top-end. Used by enhancement modals to recommend
+    /// whether to keep the result. Unknown = -1 so it never wins comparisons.
+    var rank: Int {
+        switch label {
+        case "Cooked": return 0
+        case "Muddy":  return 1
+        case "Punchy": return 2
+        case "Crisp":  return 3
+        default:       return -1
+        }
+    }
 }
 
 /**

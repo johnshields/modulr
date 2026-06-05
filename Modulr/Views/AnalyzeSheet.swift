@@ -44,6 +44,12 @@ struct AnalyzeSheet: View {
         .padding(20)
         .frame(width: 600, height: 540)
         .tint(Theme.accent)
+        .overlay(alignment: .topTrailing) {
+            MacCloseButton {
+                if analyzer.running { analyzer.cancel() }
+                onDone(); dismiss()
+            }
+        }
     }
 
     private var headerIcon: String {
@@ -195,11 +201,6 @@ struct AnalyzeSheet: View {
                 Text("Running…").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            if analyzer.running {
-                Button("Cancel", role: .destructive) { analyzer.cancel() }
-            } else {
-                Button("Close") { onDone(); dismiss() }.keyboardShortcut(.defaultAction)
-            }
         }
     }
 }

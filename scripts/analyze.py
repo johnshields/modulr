@@ -19,6 +19,8 @@ from modulr.mastering.tweak import TempoPitchBaker
 from modulr.metadata.tags import TagIO
 from modulr.pipelines import (
     AnalysePipeline,
+    BrightenPipeline,
+    ConvertPipeline,
     ResetPipeline,
     StripNumbersPipeline,
     SyncFilenamePipeline,
@@ -52,6 +54,16 @@ def _build_parser():
     p.add_argument("--set-tag", nargs=3, metavar=("PATH", "FRAME", "VALUE"))
     p.add_argument("--set-artwork", nargs=3, metavar=("PATH", "IMAGE", "MIME"))
     p.add_argument("--remove-artwork", metavar="PATH")
+    p.add_argument("--convert-mp3", metavar="FILE",
+                   help="Transcode wav/m4a to 320 kbps CBR MP3 next to source")
+    p.add_argument("--convert-folder-mp3", metavar="FOLDER",
+                   help="Bulk transcode every non-mp3 audio file in FOLDER to 320 kbps MP3")
+    p.add_argument("--delete-source", action="store_true",
+                   help="With --convert-folder-mp3, delete each original after successful encode")
+    p.add_argument("--brighten", metavar="FILE",
+                   help="Run ffmpeg exciter + high-shelf on FILE; writes a _bright sibling")
+    p.add_argument("--boost-file-sibling", metavar="FILE",
+                   help="Measure peak + write a _loud sibling lifted to ~ -0.3 dBFS")
     return p
 
 
@@ -122,6 +134,16 @@ def main():
         tag_io.set_artwork(*args.set_artwork); return
     if args.remove_artwork:
         tag_io.remove_artwork(args.remove_artwork); return
+    if args.convert_mp3:
+        ConvertPipeline().convert_to_mp3(args.convert_mp3); return
+    if args.convert_folder_mp3:
+        ConvertPipeline().convert_folder(
+            args.convert_folder_mp3, delete_original=args.delete_source
+        ); return
+    if args.brighten:
+        BrightenPipeline().brighten(args.brighten); return
+    if args.boost_file_sibling:
+        LoudnessNormaliser().boost_to_sibling(args.boost_file_sibling); return
 
     if args.reset:
         _dispatch_reset(args); return

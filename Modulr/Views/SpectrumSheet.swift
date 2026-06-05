@@ -60,6 +60,9 @@ struct SpectrumSheet: View {
         .padding(16)
         .frame(minWidth: 880, minHeight: 540)
         .background(Color.black)
+        .overlay(alignment: .topTrailing) {
+            MacCloseButton { dismiss() }
+        }
         .task { await analyse() }
     }
 
@@ -78,8 +81,6 @@ struct SpectrumSheet: View {
                 }
             }
             Spacer()
-            Button("Close") { dismiss() }
-                .keyboardShortcut(.cancelAction)
         }
     }
 

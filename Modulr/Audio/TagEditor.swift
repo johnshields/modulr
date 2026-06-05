@@ -69,14 +69,18 @@ enum TagService {
             guard let value = readStringSync(item) else { continue }
             let trimmed = value.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else { continue }
-            if matches(id: id, common: common, needles: ["nam", "title"]) { meta.title = trimmed }
-            else if matches(id: id, common: common, needles: ["ART", "artist"]) { meta.artist = trimmed }
-            else if matches(id: id, common: common, needles: ["alb", "album"]) { meta.album = trimmed }
-            else if matches(id: id, common: common, needles: ["gen", "genre"]) { meta.genre = trimmed }
-            else if matches(id: id, common: common, needles: ["day", "creationDate", "recordingYear"]) {
+            // ID3 (mp3, wav), MP4 (m4a) and common AVAsset keys all surface here.
+            if matches(id: id, common: common, needles: ["TIT2", "nam", "title"]) {
+                meta.title = trimmed
+            } else if matches(id: id, common: common, needles: ["TPE1", "ART", "artist"]) {
+                meta.artist = trimmed
+            } else if matches(id: id, common: common, needles: ["TALB", "alb", "album"]) {
+                meta.album = trimmed
+            } else if matches(id: id, common: common, needles: ["TCON", "gen", "genre"]) {
+                meta.genre = trimmed
+            } else if matches(id: id, common: common, needles: ["TDRC", "TYER", "day", "creationDate", "recordingYear"]) {
                 meta.year = Int(trimmed.prefix(4))
-            }
-            else if matches(id: id, common: common, needles: ["tmpo", "beatsPerMinute"]) {
+            } else if matches(id: id, common: common, needles: ["TBPM", "tmpo", "beatsPerMinute"]) {
                 meta.bpm = Int(trimmed)
             }
         }

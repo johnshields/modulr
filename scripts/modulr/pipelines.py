@@ -4,16 +4,20 @@ Each pipeline class owns one CLI-facing operation:
   ResetPipeline          -- strip _KEY_BPM and NNN_ from filenames
   StripNumbersPipeline   -- strip leading NNN_ from filenames; keep _KEY_BPM
   SyncFilenamePipeline   -- append _KEY_BPM to filenames using existing tags
+  ConvertPipeline        -- transcode wav/m4a to 320 kbps MP3 via ffmpeg
+  BrightenPipeline       -- ffmpeg exciter + high-shelf for dull / lossy tracks
 """
 import os
 import re
+import subprocess
 
 from .analysis.analyser import TrackAnalyser, default_analyser
 from .logger import log, log_done, log_error, log_progress
+from .mastering.ffmpeg import FfmpegRunner
 from .metadata.files import list_audio, preserve_nnn_prefix
+from .metadata.tags import TagIO
 
 _TAG_EXTS = (".mp3", ".m4a", ".wav", ".mp4", ".aac")
-from .metadata.tags import TagIO
 
 
 class _BasePipeline:
@@ -181,3 +185,123 @@ class SyncFilenamePipeline(_BasePipeline):
             return
         if self.tag_io.rename_and_sync_title(path, new_path):
             log(f"RENAMED: {name} -> {new_name}")
+
+
+class ConvertPipeline(_BasePipeline):
+    """Transcode wav/m4a to 320 kbps CBR MP3, preserving metadata.
+    Output sits next to the source with the same stem; original is left intact
+    so Swift can move it to Trash atomically after the convert succeeds.
+    """
+
+    BITRATE = "320k"
+
+    def __init__(self, ffmpeg: FfmpegRunner | None = None,
+                 tag_io: TagIO | None = None):
+        super().__init__(tag_io)
+        self._ffmpeg = ffmpeg or FfmpegRunner()
+
+    def convert_folder(self, folder, delete_original=False):
+        """Transcode every non-mp3 file in folder. Skips mp3s and existing targets."""
+        files = [p for p in list_audio(folder, exts=_TAG_EXTS)
+                 if os.path.splitext(p)[1].lower() != ".mp3"]
+        log(f"TOTAL: {len(files)}")
+        if not files:
+            log_done(); return
+        try:
+            self._ffmpeg.binary()
+        except FileNotFoundError as e:
+            log_error(str(e)); log_done(); return
+
+        for i, src in enumerate(files, 1):
+            name = os.path.basename(src)
+            log_progress(i, len(files), name)
+            self._convert_one(src, log_label=name, delete_original=delete_original)
+        log_done()
+
+    def convert_to_mp3(self, src_path):
+        name = os.path.basename(src_path)
+        log_progress(1, 1, name)
+        try:
+            self._ffmpeg.binary()
+        except FileNotFoundError as e:
+            log_error(str(e)); log_done(); return
+        self._convert_one(src_path, log_label=name, delete_original=False)
+        log_done()
+
+    def _convert_one(self, src_path, log_label, delete_original):
+        stem, ext = os.path.splitext(src_path)
+        if ext.lower() == ".mp3":
+            log_error(f"{log_label} is already mp3"); return
+        dst = f"{stem}.mp3"
+        if os.path.exists(dst):
+            log_error(f"{os.path.basename(dst)} already exists"); return
+
+        cmd = [self._ffmpeg.binary(), "-y", "-hide_banner", "-loglevel", "error",
+               "-i", src_path,
+               "-c:a", "libmp3lame", "-b:a", self.BITRATE,
+               "-map_metadata", "0", "-id3v2_version", "3",
+               dst]
+        log(f"CONVERTING: {log_label} -> {os.path.basename(dst)} @ {self.BITRATE}")
+        proc = subprocess.run(cmd, stderr=subprocess.PIPE)
+        if proc.returncode != 0:
+            try: os.unlink(dst)
+            except Exception: pass
+            log_error(f"ffmpeg: {(proc.stderr.decode(errors='ignore'))[:200]}")
+            return
+        log(f"CONVERTED: {os.path.basename(dst)}")
+        if delete_original:
+            try:
+                os.unlink(src_path)
+                log(f"REMOVED_SOURCE: {log_label}")
+            except Exception as e:
+                log_error(f"could not remove source: {e}")
+
+
+class BrightenPipeline(_BasePipeline):
+    """ffmpeg exciter + treble shelf for dull / lossy tracks.
+    Writes a `_bright` sibling next to the source so the caller can A/B before
+    committing. Bitrate matches the source (mp3 / m4a) or PCM for wav.
+    """
+
+    BITRATE = "320k"
+    EXCITER = "aexciter=amount=2.5:drive=3:blend=0:freq=7500:ceil=11000:listen=disabled"
+    SHELF = "treble=g=3.5:f=10000:width_type=q:width=0.7"
+    LIMITER = "alimiter=limit=0.97"
+    EXT_TO_CODEC = {"mp3": "libmp3lame", "m4a": "aac", "aac": "aac", "wav": "pcm_s16le"}
+
+    def __init__(self, ffmpeg: FfmpegRunner | None = None,
+                 tag_io: TagIO | None = None):
+        super().__init__(tag_io)
+        self._ffmpeg = ffmpeg or FfmpegRunner()
+
+    def brighten(self, src_path):
+        name = os.path.basename(src_path)
+        log_progress(1, 1, name)
+        try:
+            ffmpeg = self._ffmpeg.binary()
+        except FileNotFoundError as e:
+            log_error(str(e)); log_done(); return
+
+        stem, ext = os.path.splitext(src_path)
+        dst = f"{stem}_bright{ext}"
+        if os.path.exists(dst):
+            log_error(f"{os.path.basename(dst)} already exists"); log_done(); return
+
+        codec = self.EXT_TO_CODEC.get(ext.lower().lstrip("."), "copy")
+        filters = ",".join([self.EXCITER, self.SHELF, self.LIMITER])
+        cmd = [ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+               "-i", src_path, "-af", filters,
+               "-c:a", codec]
+        if codec != "pcm_s16le":
+            cmd += ["-b:a", self.BITRATE]
+        cmd += ["-map_metadata", "0", "-id3v2_version", "3", dst]
+
+        log(f"BRIGHTENING: {name} -> {os.path.basename(dst)}")
+        proc = subprocess.run(cmd, stderr=subprocess.PIPE)
+        if proc.returncode != 0:
+            try: os.unlink(dst)
+            except Exception: pass
+            log_error(f"ffmpeg: {(proc.stderr.decode(errors='ignore'))[:200]}")
+            log_done(); return
+        log(f"BRIGHTENED: {os.path.basename(dst)}")
+        log_done()

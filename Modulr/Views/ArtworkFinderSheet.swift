@@ -43,14 +43,13 @@ struct ArtworkFinderSheet: View {
                 }
             }
 
-            HStack {
-                Spacer()
-                Button("Close") { dismiss() }.keyboardShortcut(.cancelAction)
-            }
         }
         .padding(20)
         .frame(width: 560, height: 540)
         .tint(Theme.accent)
+        .overlay(alignment: .topTrailing) {
+            MacCloseButton { dismiss() }
+        }
         .onAppear {
             query = sanitise(track.title)
             artistQuery = track.artist ?? ""

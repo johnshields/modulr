@@ -106,6 +106,26 @@ struct TransportView: View {
                     }
                     .disabled(library.currentFolder == nil)
                 }
+
+                Section("Convert") {
+                    Button {
+                        guard let cur = library.currentFolder else { return }
+                        analyzer.convertFolderToMP3(cur, deleteSource: false) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Folder to MP3 (keep originals)",
+                              systemImage: "waveform.path.badge.plus")
+                    }
+                    Button {
+                        guard let cur = library.currentFolder else { return }
+                        analyzer.convertFolderToMP3(cur, deleteSource: true) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Folder to MP3 (delete originals)",
+                              systemImage: "trash")
+                    }
+                    .disabled(library.currentFolder == nil)
+                }
             } label: {
                 Group {
                     if isCompact {

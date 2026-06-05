@@ -14,6 +14,9 @@ struct TrackListView: View {
     @State private var sortOrder: [KeyPathComparator<Track>] = [.init(\.trackNumberSort)]
     @State private var tagTrack: Track?
     @State private var spectrumTrack: Track?
+    @State private var convertTrack: Track?
+    @State private var brightenTrack: Track?
+    @State private var loudnessTrack: Track?
     @State private var deleteTrack: Track?
     @State private var search = ""
 
@@ -63,6 +66,27 @@ struct TrackListView: View {
         .tint(Self.accent)
         .sheet(item: $tagTrack) { t in TagEditSheet(track: t).environmentObject(library) }
         .sheet(item: $spectrumTrack) { t in SpectrumSheet(trackURL: t.url) }
+        .sheet(item: $convertTrack) { t in
+            ConvertSheet(track: t)
+                .environmentObject(library)
+                .environmentObject(analyzer)
+                .environmentObject(player)
+                .environmentObject(quality)
+        }
+        .sheet(item: $brightenTrack) { t in
+            BrightenSheet(track: t)
+                .environmentObject(library)
+                .environmentObject(analyzer)
+                .environmentObject(player)
+                .environmentObject(quality)
+        }
+        .sheet(item: $loudnessTrack) { t in
+            LoudnessSheet(track: t)
+                .environmentObject(library)
+                .environmentObject(analyzer)
+                .environmentObject(player)
+                .environmentObject(quality)
+        }
         .sheet(item: $deleteTrack) { t in
             DeleteSheet(
                 track: t,
@@ -295,12 +319,22 @@ struct TrackListView: View {
         Button { tagTrack = t } label: { Label("Edit Track Info…", systemImage: "info.circle") }
             .disabled(!TagIO.supportsTags(t.url))
         Button {
-            analyzer.analyzeFile(t.url) {}
+            analyzer.analyzeFile(t.url, rename: analyzer.renameAfter) {}
             showAnalyze = true
         } label: { Label("Analyse BPM/Key", systemImage: "waveform.badge.magnifyingglass") }
             .disabled(!TagIO.supportsTags(t.url))
         Button { spectrumTrack = t } label: {
             Label("Show Spectrum", systemImage: "waveform.path")
+        }
+        Button { convertTrack = t } label: {
+            Label("Convert to MP3…", systemImage: "waveform.path.badge.plus")
+        }
+        .disabled(t.url.pathExtension.lowercased() == "mp3")
+        Button { brightenTrack = t } label: {
+            Label("Brighten Track…", systemImage: "sparkles")
+        }
+        Button { loudnessTrack = t } label: {
+            Label("Normalise Loudness…", systemImage: "speaker.wave.3.fill")
         }
         Divider()
         Button {
@@ -384,14 +418,13 @@ struct TrackListView: View {
                     .buttonStyle(.bordered)
                     .tint(.red)
 
-                    Button("Cancel", action: onCancel)
-                        .buttonStyle(.bordered)
-                        .frame(maxWidth: .infinity)
-                        .keyboardShortcut(.cancelAction)
                 }
             }
             .padding(20)
             .frame(width: 380)
+            .overlay(alignment: .topTrailing) {
+                MacCloseButton(action: onCancel)
+            }
         }
     }
 

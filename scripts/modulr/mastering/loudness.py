@@ -44,6 +44,38 @@ class LoudnessNormaliser:
             log(f"{'APPLIED' if ok else 'ERROR'}: {name}")
         log_done()
 
+    def boost_to_sibling(self, path):
+        """Write a `<stem>_loud<ext>` next to source with the safe-peak boost
+        applied; leaves original intact so the caller can A/B and commit.
+        """
+        import os
+        import shutil
+        name = os.path.basename(path)
+        log_progress(1, 1, name)
+        try:
+            mean, peak = self._meter.measure(path)
+        except FileNotFoundError as e:
+            log_error(str(e)); log_done(); return
+        if peak is None:
+            log_error(f"{name}: could not measure"); log_done(); return
+        log(f"MEASURE: {name} mean={mean:.1f}dB peak={peak:.1f}dB")
+        gain = max(0.0, -self.SAFE_HEADROOM_DB - peak)
+        if gain < self.MIN_USEFUL_GAIN_DB:
+            log(f"PLAN: {name} gain=+0.0dB (already loud)"); log_done(); return
+        log(f"PLAN: {name} gain=+{gain:.1f}dB")
+
+        stem, ext = os.path.splitext(path)
+        dst = f"{stem}_loud{ext}"
+        if os.path.exists(dst):
+            log_error(f"{os.path.basename(dst)} already exists"); log_done(); return
+
+        out, err = self._ffmpeg.encode(path, f"volume={gain}dB")
+        if out is None:
+            log_error(f"ffmpeg: {(err or '')[:200]}"); log_done(); return
+        shutil.move(out, dst)
+        log(f"BOOSTED: {os.path.basename(dst)} gain=+{gain:.1f}dB")
+        log_done()
+
     # Folder match
 
     def match_folder(self, folder, apply=False):

@@ -28,6 +28,14 @@ final class QualityCache: ObservableObject {
 
     func verdict(for url: URL) -> QualityVerdict? { verdicts[url] }
 
+    /// Evict the cached verdict for a URL whose file content has changed
+    /// (after Brighten / Loudness replace, etc.) so a fresh score is computed
+    /// the next time the row appears.
+    func invalidate(_ url: URL) {
+        verdicts.removeValue(forKey: url)
+        pending.remove(url)
+    }
+
     func requestVerdict(_ url: URL) {
         guard verdicts[url] == nil, !pending.contains(url) else { return }
         pending.insert(url)

@@ -59,13 +59,15 @@ struct TagEditSheet: View {
 
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }
                 Button("Save") { save() }.keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
         .frame(width: 540)
         .tint(Theme.accent)
+        .overlay(alignment: .topTrailing) {
+            MacCloseButton { dismiss() }
+        }
         .sheet(isPresented: $showFinder) {
             ArtworkFinderSheet(track: track) { data, mime in
                 library.setArtwork(track.url, imageData: data, mime: mime)
@@ -132,13 +134,15 @@ struct RenameSheet: View {
             }
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }
                 Button("Rename") { commit() }.keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
         .frame(width: 420)
         .tint(Theme.accent)
+        .overlay(alignment: .topTrailing) {
+            MacCloseButton { dismiss() }
+        }
         .onAppear { name = track.url.deletingPathExtension().lastPathComponent }
     }
 

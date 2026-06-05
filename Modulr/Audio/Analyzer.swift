@@ -7,7 +7,7 @@ import Combine
  */
 final class Analyzer: ObservableObject {
     enum Mode: String {
-        case analyse, reset, normalize, syncFilename, idle
+        case analyse, reset, normalize, syncFilename, convert, brighten, idle
 
         var title: String {
             switch self {
@@ -15,6 +15,8 @@ final class Analyzer: ObservableObject {
             case .reset: return "Resetting Names"
             case .normalize: return "Matching Loudness"
             case .syncFilename: return "Syncing Filenames"
+            case .convert: return "Converting"
+            case .brighten: return "Brightening"
             case .idle: return "Working"
             }
         }
@@ -25,6 +27,8 @@ final class Analyzer: ObservableObject {
             case .reset: return "Stripping suffixes from filenames"
             case .normalize: return "Measuring volume and applying gain"
             case .syncFilename: return "Adding _KEY_BPM suffix from tags"
+            case .convert: return "Transcoding to 320 kbps MP3"
+            case .brighten: return "Adding harmonic exciter + high-shelf"
             case .idle: return ""
             }
         }
@@ -94,6 +98,29 @@ final class Analyzer: ObservableObject {
     func stripNumbersFile(_ url: URL, completion: @escaping () -> Void) {
         mode = .reset
         run(args: ["--file", url.path, "--strip-numbers"], completion: completion)
+    }
+
+    func convertToMP3(_ url: URL, completion: @escaping () -> Void) {
+        mode = .convert
+        run(args: ["--convert-mp3", url.path], completion: completion)
+    }
+
+    func convertFolderToMP3(_ folder: URL, deleteSource: Bool,
+                            completion: @escaping () -> Void) {
+        mode = .convert
+        var args = ["--convert-folder-mp3", folder.path]
+        if deleteSource { args.append("--delete-source") }
+        run(args: args, completion: completion)
+    }
+
+    func brightenFile(_ url: URL, completion: @escaping () -> Void) {
+        mode = .brighten
+        run(args: ["--brighten", url.path], completion: completion)
+    }
+
+    func boostFileSibling(_ url: URL, completion: @escaping () -> Void) {
+        mode = .normalize
+        run(args: ["--boost-file-sibling", url.path], completion: completion)
     }
 
     func normalizePreview(_ url: URL, completion: @escaping () -> Void) {
