@@ -107,10 +107,20 @@ final class Library: ObservableObject {
      */
     func renumberByTag(orderedIDs: [UUID], onProgress: ((Int, Int) -> Void)? = nil) {
         let total = orderedIDs.count
+        var newOrder: [Track] = []
+        newOrder.reserveCapacity(total)
         for (i, id) in orderedIDs.enumerated() {
             guard let idx = tracks.firstIndex(where: { $0.id == id }) else { continue }
-            TagService.setTrackNumber(tracks[idx].url, index: i + 1, total: total)
-            onProgress?(i + 1, total)
+            let index = i + 1
+            TagService.setTrackNumber(tracks[idx].url, index: index, total: total)
+            newOrder.append(tracks[idx].with(trackNumber: .some(index)))
+            onProgress?(index, total)
+        }
+        // Append any tracks not part of the ordering (defensive).
+        let orderedSet = Set(orderedIDs)
+        let leftovers = tracks.filter { !orderedSet.contains($0.id) }
+        DispatchQueue.main.async { [newOrder, leftovers] in
+            self.tracks = newOrder + leftovers
         }
     }
 

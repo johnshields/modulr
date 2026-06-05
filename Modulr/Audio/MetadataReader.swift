@@ -30,6 +30,20 @@ enum MetadataReader {
         return nil
     }
 
+    static func trackNumber(_ items: [AVMetadataItem]) async -> Int? {
+        for item in items where matches(item, idContains: "TRCK", commonKey: "trackNumber")
+            || (item.identifier?.rawValue.contains("trkn") ?? false) {
+            if let number = await loadNumber(item) { return number.intValue }
+            if let raw = await loadString(item)?
+                .trimmingCharacters(in: .whitespaces),
+               !raw.isEmpty {
+                let head = raw.split(separator: "/").first.map(String.init) ?? raw
+                if let n = Int(head) { return n }
+            }
+        }
+        return nil
+    }
+
     static func artist(_ items: [AVMetadataItem]) async -> String? {
         for item in items where item.commonKey == .commonKeyArtist {
             if let value = await loadString(item)?.trimmingCharacters(in: .whitespaces),

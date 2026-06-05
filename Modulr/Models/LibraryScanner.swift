@@ -33,7 +33,8 @@ enum LibraryScanner {
                 duration: seconds,
                 bpm: await MetadataReader.bpm(items),
                 key: await MetadataReader.key(items),
-                bitrate: await MetadataReader.bitrateKbps(asset, knownDuration: seconds)
+                bitrate: await MetadataReader.bitrateKbps(asset, knownDuration: seconds),
+                trackNumber: await MetadataReader.trackNumber(items)
             ))
         }
         return found

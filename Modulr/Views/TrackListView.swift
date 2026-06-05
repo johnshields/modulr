@@ -10,7 +10,7 @@ struct TrackListView: View {
     let onPlay: (URL) -> Void
 
     @State private var selection: Track.ID?
-    @State private var sortOrder: [KeyPathComparator<Track>] = [.init(\.title)]
+    @State private var sortOrder: [KeyPathComparator<Track>] = [.init(\.trackNumberSort)]
     @State private var tagTrack: Track?
     @State private var deleteTrack: Track?
     @State private var search = ""
@@ -137,6 +137,13 @@ struct TrackListView: View {
 
     private var tableBody: some View {
         Table(visible, selection: $selection, sortOrder: $sortOrder) {
+            TableColumn("#", value: \.trackNumberSort) { t in
+                Text(t.trackNumberDisplay)
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            .width(min: 30, ideal: 40, max: 55)
+
             TableColumn("Name", value: \.title) { t in
                 HStack {
                     Button {

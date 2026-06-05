@@ -9,7 +9,11 @@ struct Track: Identifiable, Hashable {
     var bpm: Int?
     var key: String?
     var bitrate: Int?
+    var trackNumber: Int?
     var tags: [String] = []
+
+    var trackNumberSort: Int { trackNumber ?? Int.max }
+    var trackNumberDisplay: String { trackNumber.map(String.init) ?? "—" }
 
     var fileType: String { url.pathExtension.uppercased() }
     var typeAndBitrate: String {
@@ -38,7 +42,8 @@ struct Track: Identifiable, Hashable {
         artist: String?? = nil,
         duration: TimeInterval? = nil,
         bpm: Int?? = nil,
-        key: String?? = nil
+        key: String?? = nil,
+        trackNumber: Int?? = nil
     ) -> Track {
         var copy = self
         if let url { copy.url = url }
@@ -47,6 +52,7 @@ struct Track: Identifiable, Hashable {
         if let duration { copy.duration = duration }
         if case let .some(value) = bpm { copy.bpm = value }
         if case let .some(value) = key { copy.key = value }
+        if case let .some(value) = trackNumber { copy.trackNumber = value }
         return copy
     }
 }
