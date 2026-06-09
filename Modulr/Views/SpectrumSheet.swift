@@ -204,7 +204,7 @@ struct SpectrumSheet: View {
     }
 
     private var verdict: QualityVerdict? {
-        spectrum.map(SpectrumAnalysis.verdict(spectrum:))
+        spectrum.map { SpectrumAnalysis.verdict(spectrum: $0, sourceURL: trackURL) }
     }
 
     private func analyse() async {

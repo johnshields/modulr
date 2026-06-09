@@ -143,37 +143,45 @@ struct BrightenSheet: View {
     }
 
     private enum Recommendation {
-        case replace, discard, neutral
+        case replace, discard, neutral, harshnessWarning
 
         var label: String {
             switch self {
-            case .replace: return "Recommended: Replace Original"
-            case .discard: return "Recommended: Discard Brightened"
-            case .neutral: return "No clear improvement"
+            case .replace:          return "Recommended: Replace Original"
+            case .discard:          return "Recommended: Discard Brightened"
+            case .neutral:          return "No clear improvement"
+            case .harshnessWarning: return "Top-end intact — preview first"
             }
         }
         var icon: String {
             switch self {
-            case .replace: return "checkmark.seal.fill"
-            case .discard: return "exclamationmark.triangle.fill"
-            case .neutral: return "questionmark.circle"
+            case .replace:          return "checkmark.seal.fill"
+            case .discard:          return "exclamationmark.triangle.fill"
+            case .neutral:          return "questionmark.circle"
+            case .harshnessWarning: return "ear.trianglebadge.exclamationmark"
             }
         }
         var tint: Color {
             switch self {
-            case .replace: return .green
-            case .discard: return .red
-            case .neutral: return .yellow
+            case .replace:          return .green
+            case .discard:          return .red
+            case .neutral:          return .yellow
+            case .harshnessWarning: return .orange
             }
         }
     }
 
+    /// Discard whenever the rank slips. If the source already carries real
+    /// top-end (hasHealthyTop), surface a harshness warning instead of a
+    /// straight Replace — the exciter usually just sharpens what is already
+    /// there. Otherwise compare ranks: Cooked < Muddy < Punchy < Crisp.
     private var recommendation: Recommendation {
         guard let orig = originalVerdict, let bright = brightVerdict,
               orig.rank >= 0, bright.rank >= 0
         else { return .neutral }
-        if bright.rank > orig.rank { return .replace }
         if bright.rank < orig.rank { return .discard }
+        if orig.hasHealthyTop { return .harshnessWarning }
+        if bright.rank > orig.rank { return .replace }
         return .neutral
     }
 

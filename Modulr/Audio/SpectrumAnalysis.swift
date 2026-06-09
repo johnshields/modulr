@@ -3,13 +3,17 @@ import SwiftUI
 
 /**
  * QualityVerdict
- * One-word judgment shown next to a track + colour + tooltip detail. Produced
- * by `SpectrumAnalysis.verdict(...)` or `SpectrumAnalysis.verdict(spectrum:)`.
+ * Label + colour + tooltip detail. Carries the detected cutoff so callers
+ * (BrightenSheet) can branch on bandwidth without re-running the analysis.
  */
 struct QualityVerdict: Hashable {
     let label: String
     let color: Color
     let detail: String
+    /// Spectral cutoff in Hz. Nil for `.unknown`.
+    var cutoffHz: Double? = nil
+    /// Source sample rate in Hz.
+    var sampleRateHz: Double? = nil
 
     static let unknown = QualityVerdict(
         label: "Unknown",
@@ -17,8 +21,6 @@ struct QualityVerdict: Hashable {
         detail: "Not enough headroom in the source to score."
     )
 
-    /// Higher rank = better top-end. Used by enhancement modals to recommend
-    /// whether to keep the result. Unknown = -1 so it never wins comparisons.
     var rank: Int {
         switch label {
         case "Cooked": return 0
@@ -28,111 +30,122 @@ struct QualityVerdict: Hashable {
         default:       return -1
         }
     }
+
+    /// True when the cutoff sits at or above the healthy floor (default 19 kHz,
+    /// proportional for low-Nyquist files). Used by BrightenSheet to nudge
+    /// against exciting sources that already carry real top-end.
+    var hasHealthyTop: Bool {
+        guard let cutoff = cutoffHz, let sampleRate = sampleRateHz else { return false }
+        let nyquist = sampleRate / 2
+        let adjusted = min(SpectrumAnalysis.healthyCutoffHz, nyquist - 1000)
+        return cutoff >= adjusted
+    }
 }
 
 /**
  * SpectrumAnalysis
- * Pure functions over Spectrum or raw dB samples. Two factories:
+ * Cutoff-driven verdict modelled after fakeflac, Lossless Audio Checker and
+ * Spectro. Thresholds in kHz:
  *
- * - `verdict(spectrum:)` — uses an already-computed full Spectrum (sheet path).
- * - `verdict(loSamples:hiSamples:nyquist:)` — uses the streaming bin samples
- *   collected by `SpectrumGenerator.collectBinRanges` (cache path).
+ *   >= 20.5  -> Crisp   (genuine lossless or 320 CBR LAME with no lowpass)
+ *   >= 19.5  -> Punchy  (320 MP3 or transparent AAC >= 256 kbps)
+ *   >= 17.5  -> Muddy   (192-256 MP3, FDK-AAC at default 17 kHz)
+ *   >= 15.5  -> Cooked  (128-192 MP3 or low-rate AAC)
+ *   <  15.5  -> Cooked  (<= 128 kbps source)
  *
- * Both converge through `gradeDrop(_:)` so the verdict scale stays consistent.
+ * AAC / m4a containers get a 1.5 kHz leniency offset because FDK-AAC plateaus
+ * at 17 kHz at iTunes-radio rates.
+ *
+ * Refs:
+ *   - mevdschee/fakeflac (cliff slope methodology)
+ *   - getspectro.app blog "how-to-detect-fake-lossless"
+ *   - Hennequin et al., ICASSP 2017 (Deezer Research)
+ *   - Hydrogenaudio FDK-AAC and LAME wikis
  */
 enum SpectrumAnalysis {
-    static let loBand: (Double, Double) = (1_000, 5_000)
-    static let hiBand: (Double, Double) = (16_000, 20_000)
-    static let minNyquist: Double = 16_000
+    /// Cutoff floor for the healthy-top check used by BrightenSheet.
+    static let healthyCutoffHz: Double = 19_000
 
-    static func verdict(spectrum: SpectrumGenerator.Spectrum) -> QualityVerdict {
-        guard spectrum.sampleRate / 2 > minNyquist else { return .unknown }
-        let lo = SpectrumGenerator.binRange(hzLow: loBand.0, hzHigh: loBand.1,
-                                            sampleRate: spectrum.sampleRate)
-        let hi = SpectrumGenerator.binRange(hzLow: hiBand.0, hzHigh: hiBand.1,
-                                            sampleRate: spectrum.sampleRate)
-        let loEnergy = medianBand(spectrum: spectrum, bins: lo)
-        let hiEnergy = medianBand(spectrum: spectrum, bins: hi)
-        return gradeDrop(loEnergy: loEnergy, hiEnergy: hiEnergy)
-    }
+    /// File extensions treated as AAC for the container offset.
+    private static let aacExtensions: Set<String> = ["m4a", "aac", "mp4"]
+    private static let aacOffsetHz: Double = 1_500
 
-    static func verdict(loSamples: [Float], hiSamples: [Float],
-                        sampleRate: Double) -> QualityVerdict {
-        guard sampleRate / 2 > minNyquist else { return .unknown }
-        let loEnergy = median(loSamples) ?? SpectrumGenerator.minDB
-        let hiEnergy = median(hiSamples) ?? SpectrumGenerator.minDB
-        return gradeDrop(loEnergy: loEnergy, hiEnergy: hiEnergy)
-    }
+    /// Tier minimums (Hz) for lossless/generic containers.
+    private static let crispMinHz: Double = 20_500
+    private static let punchyMinHz: Double = 19_500
+    private static let muddyMinHz: Double = 17_500
+    private static let cookedMinHz: Double = 15_500
 
-    // Internals
+    static func verdict(cutoffHz: Double, sampleRate: Double,
+                        sourceURL: URL? = nil) -> QualityVerdict {
+        let isAAC = sourceURL.map { aacExtensions.contains($0.pathExtension.lowercased()) } ?? false
+        let offset: Double = isAAC ? aacOffsetHz : 0
 
-    /// Hi-band dB floors — if 16-20 kHz still carries this much energy the
-    /// source can't genuinely be COOKED no matter how loud the body is.
-    private static let healthyHiFloorDB: Float = -55
-    private static let mildHiFloorDB: Float = -70
+        let crisp  = crispMinHz  - offset
+        let punchy = punchyMinHz - offset
+        let muddy  = muddyMinHz  - offset
+        let cooked = cookedMinHz - offset
 
-    private static func gradeDrop(loEnergy: Float, hiEnergy: Float) -> QualityVerdict {
-        guard loEnergy > -100 else { return .unknown }
-        let drop = loEnergy - hiEnergy
-
-        // Real top-end present — cap verdict at MUDDY regardless of drop. Lots
-        // of densely-mastered tracks have a loud body that swamps a healthy
-        // hi-band into a large drop number; that's not the same as a cliff.
-        if hiEnergy >= healthyHiFloorDB {
-            if drop < 12 {
-                return QualityVerdict(
-                    label: "Crisp",
-                    color: Color(red: 0.40, green: 0.95, blue: 0.55),
-                    detail: "Full bandwidth — clean top-end, high quality source."
-                )
-            }
-            if drop < 22 {
-                return QualityVerdict(
-                    label: "Punchy",
-                    color: Color(red: 0.65, green: 0.85, blue: 0.40),
-                    detail: "Healthy top-end with minor roll-off."
-                )
-            }
-            return QualityVerdict(
-                label: "Muddy",
-                color: Color(red: 0.95, green: 0.80, blue: 0.25),
-                detail: "Body is loud relative to the top — not a true cutoff."
-            )
+        func build(_ label: String, _ color: Color, _ detail: String) -> QualityVerdict {
+            QualityVerdict(label: label, color: color, detail: detail,
+                           cutoffHz: cutoffHz, sampleRateHz: sampleRate)
         }
 
-        // Some top-end but quiet — likely lossy compression band-limit.
-        if hiEnergy >= mildHiFloorDB {
-            return QualityVerdict(
-                label: "Muddy",
-                color: Color(red: 0.95, green: 0.80, blue: 0.25),
-                detail: "Noticeable cutoff above 16 kHz — borderline source."
-            )
+        if cutoffHz >= crisp {
+            return build("Crisp",
+                         Color(red: 0.40, green: 0.95, blue: 0.55),
+                         "Cutoff near Nyquist — full-bandwidth source.")
         }
-
-        // Hi-band is gone (silent or near-noise floor) — true cliff.
-        return QualityVerdict(
-            label: "Cooked",
-            color: Color(red: 0.95, green: 0.35, blue: 0.30),
-            detail: "Sharp cliff above 16 kHz — likely upconverted from lossy source."
-        )
+        if cutoffHz >= punchy {
+            return build("Punchy",
+                         Color(red: 0.65, green: 0.85, blue: 0.40),
+                         "Cutoff ≈ \(Self.kHz(cutoffHz)) — 320 MP3 or transparent AAC.")
+        }
+        if cutoffHz >= muddy {
+            return build("Muddy",
+                         Color(red: 0.95, green: 0.80, blue: 0.25),
+                         "Cutoff ≈ \(Self.kHz(cutoffHz)) — likely 192–256 kbps MP3 / AAC.")
+        }
+        if cutoffHz >= cooked {
+            return build("Cooked",
+                         Color(red: 0.95, green: 0.35, blue: 0.30),
+                         "Cutoff ≈ \(Self.kHz(cutoffHz)) — likely 128–192 kbps source.")
+        }
+        return build("Cooked",
+                     Color(red: 0.95, green: 0.35, blue: 0.30),
+                     "Cutoff ≈ \(Self.kHz(cutoffHz)) — likely ≤ 128 kbps source.")
     }
 
-    private static func medianBand(spectrum: SpectrumGenerator.Spectrum,
-                                   bins: ClosedRange<Int>) -> Float {
-        var collected: [Float] = []
-        let step = max(1, spectrum.timeColumns / 200)
-        for col in stride(from: 0, to: spectrum.timeColumns, by: step) {
-            for b in bins {
-                collected.append(spectrum.data[col * spectrum.freqBins + b])
+    /// Verdict from an already-rendered Spectrum (SpectrumSheet path).
+    /// Averages the matrix across time, runs the same cliff sweep as
+    /// SpectrumGenerator.findCutoff, then routes through the Hz tiering.
+    static func verdict(spectrum: SpectrumGenerator.Spectrum,
+                        sourceURL: URL? = nil) -> QualityVerdict {
+        guard spectrum.timeColumns > 0, spectrum.freqBins > 1 else { return .unknown }
+        var avg = [Float](repeating: 0, count: spectrum.freqBins)
+        for col in 0..<spectrum.timeColumns {
+            let base = col * spectrum.freqBins
+            for b in 0..<spectrum.freqBins {
+                avg[b] += spectrum.data[base + b]
             }
         }
-        return median(collected) ?? SpectrumGenerator.minDB
+        let denom = Float(spectrum.timeColumns)
+        for b in 0..<spectrum.freqBins { avg[b] /= denom }
+
+        let nyquist = spectrum.sampleRate / 2
+        let hzPerBin = nyquist / Double(spectrum.freqBins - 1)
+        let slopeWindowBins = max(2, Int(200.0 / hzPerBin))
+        var cutoff = nyquist
+        for b in stride(from: spectrum.freqBins - 1, through: slopeWindowBins, by: -1) {
+            if avg[b - slopeWindowBins] - avg[b] >= 6 {
+                cutoff = Double(b) * hzPerBin
+                break
+            }
+        }
+        return verdict(cutoffHz: cutoff, sampleRate: spectrum.sampleRate, sourceURL: sourceURL)
     }
 
-    private static func median(_ values: [Float]) -> Float? {
-        guard !values.isEmpty else { return nil }
-        var sorted = values
-        sorted.sort()
-        return sorted[sorted.count / 2]
+    private static func kHz(_ hz: Double) -> String {
+        String(format: "%.1f kHz", hz / 1000)
     }
 }

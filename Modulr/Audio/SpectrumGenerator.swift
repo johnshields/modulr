@@ -4,16 +4,14 @@ import AVFoundation
 
 /**
  * SpectrumGenerator
- * Offline STFT of an audio file via vDSP (Accelerate). Two entry points:
- *
- * - `generate(url:)` returns a full time × frequency dB matrix for the Spek-style
- *   heatmap (SpectrumSheet).
- * - `generateBinRanges(url:ranges:sampleStride:)` streams the STFT and only
- *   keeps the bins we care about — for cheap per-track verdicts in QualityCache
- *   without holding ~50 MB of float data in memory per file.
- *
- * Both share `iterateSTFT` so FFT params stay consistent: 4096-sample Hann
- * window, 50% overlap, dB-clamped to [minDB, maxDB].
+ * Offline STFT via vDSP (Accelerate). Three entry points:
+ *   - `generate(url:)` -- full time x frequency dB matrix (SpectrumSheet).
+ *   - `collectBinRanges(url:ranges:sampleStride:)` -- streams the STFT and
+ *     keeps only the requested bins (low-memory band sampling).
+ *   - `findCutoff(url:)` -- averages magnitudes across time, then sweeps from
+ *     Nyquist down for the cliff used by QualityCache.
+ * All three share `iterateSTFT`, so FFT params stay consistent: 4096-sample
+ * Hann window, 50% overlap, dB-clamped to [minDB, maxDB].
  */
 enum SpectrumGenerator {
     static let fftSize = 4096
@@ -70,6 +68,72 @@ enum SpectrumGenerator {
     struct RangeSample {
         let range: ClosedRange<Int>
         var values: [Float] = []
+    }
+
+    /// Detect the spectral cutoff frequency (Hz) using the fakeflac-style
+    /// cliff sweep: average magnitudes across time, smooth, then walk from
+    /// Nyquist down to the first 200 Hz window with a >= 6 dB drop. Returns
+    /// Nyquist when no cliff is found (genuine full-bandwidth source).
+    /// Refs: mevdschee/fakeflac and Spectro's "how-to-detect-fake-lossless".
+    struct CutoffResult { let cutoffHz: Double; let sampleRate: Double }
+
+    static func findCutoff(url: URL,
+                           windowStride: Int = 4,
+                           slopeWindowHz: Double = 200,
+                           slopeMinDropDB: Float = 6) async throws -> CutoffResult {
+        let pcm = try loadMonoPCM(url: url)
+        let bins = fftSize / 2
+        var accum = [Float](repeating: 0, count: bins)
+        var windowCount = 0
+
+        try iterateSTFT(mono: pcm.mono, frames: pcm.frames, stride: windowStride) { _, magsDB in
+            for b in 0..<bins { accum[b] += magsDB[b] }
+            windowCount += 1
+        }
+        guard windowCount > 0 else {
+            return CutoffResult(cutoffHz: pcm.sampleRate / 2, sampleRate: pcm.sampleRate)
+        }
+        var avg = accum.map { $0 / Float(windowCount) }
+
+        // Smooth over ~bins/100 to suppress per-bin noise before the sweep.
+        let smoothWidth = max(5, bins / 100)
+        let smoothed = movingAverage(avg, width: smoothWidth)
+        avg.removeAll()
+
+        let nyquist = pcm.sampleRate / 2
+        let hzPerBin = nyquist / Double(bins - 1)
+        let slopeWindowBins = max(2, Int(slopeWindowHz / hzPerBin))
+
+        // Sweep from Nyquist down. First bin where the magnitude 200 Hz lower
+        // is at least 6 dB louder marks the cliff.
+        for b in stride(from: bins - 1, through: slopeWindowBins, by: -1) {
+            let dropBelow = smoothed[b - slopeWindowBins] - smoothed[b]
+            if dropBelow >= slopeMinDropDB {
+                let cutoff = Double(b) * hzPerBin
+                return CutoffResult(cutoffHz: cutoff, sampleRate: pcm.sampleRate)
+            }
+        }
+        return CutoffResult(cutoffHz: nyquist, sampleRate: pcm.sampleRate)
+    }
+
+    private static func movingAverage(_ values: [Float], width: Int) -> [Float] {
+        guard width > 1, values.count > width else { return values }
+        var out = [Float](repeating: 0, count: values.count)
+        let half = width / 2
+        var sum: Float = 0
+        // Prime sum with the first `width` samples.
+        for i in 0..<min(width, values.count) { sum += values[i] }
+        for i in 0..<values.count {
+            if i > half, i + half - width >= 0 {
+                sum -= values[i + half - width]
+            }
+            if i + half < values.count, i > 0 {
+                sum += values[i + half]
+            }
+            let denom = Float(min(width, values.count))
+            out[i] = sum / denom
+        }
+        return out
     }
 
     static func collectBinRanges(
