@@ -66,35 +66,55 @@ enum SpectrumAnalysis {
 
     // Internals
 
+    /// Hi-band dB floors — if 16-20 kHz still carries this much energy the
+    /// source can't genuinely be COOKED no matter how loud the body is.
+    private static let healthyHiFloorDB: Float = -55
+    private static let mildHiFloorDB: Float = -70
+
     private static func gradeDrop(loEnergy: Float, hiEnergy: Float) -> QualityVerdict {
         guard loEnergy > -100 else { return .unknown }
         let drop = loEnergy - hiEnergy
-        switch drop {
-        case ..<10:
+
+        // Real top-end present — cap verdict at MUDDY regardless of drop. Lots
+        // of densely-mastered tracks have a loud body that swamps a healthy
+        // hi-band into a large drop number; that's not the same as a cliff.
+        if hiEnergy >= healthyHiFloorDB {
+            if drop < 12 {
+                return QualityVerdict(
+                    label: "Crisp",
+                    color: Color(red: 0.40, green: 0.95, blue: 0.55),
+                    detail: "Full bandwidth — clean top-end, high quality source."
+                )
+            }
+            if drop < 22 {
+                return QualityVerdict(
+                    label: "Punchy",
+                    color: Color(red: 0.65, green: 0.85, blue: 0.40),
+                    detail: "Healthy top-end with minor roll-off."
+                )
+            }
             return QualityVerdict(
-                label: "Crisp",
-                color: Color(red: 0.40, green: 0.95, blue: 0.55),
-                detail: "Full bandwidth — clean top-end, high quality source."
+                label: "Muddy",
+                color: Color(red: 0.95, green: 0.80, blue: 0.25),
+                detail: "Body is loud relative to the top — not a true cutoff."
             )
-        case ..<20:
-            return QualityVerdict(
-                label: "Punchy",
-                color: Color(red: 0.65, green: 0.85, blue: 0.40),
-                detail: "Healthy top-end with minor roll-off."
-            )
-        case ..<30:
+        }
+
+        // Some top-end but quiet — likely lossy compression band-limit.
+        if hiEnergy >= mildHiFloorDB {
             return QualityVerdict(
                 label: "Muddy",
                 color: Color(red: 0.95, green: 0.80, blue: 0.25),
                 detail: "Noticeable cutoff above 16 kHz — borderline source."
             )
-        default:
-            return QualityVerdict(
-                label: "Cooked",
-                color: Color(red: 0.95, green: 0.35, blue: 0.30),
-                detail: "Sharp cliff above 16 kHz — likely upconverted from lossy source."
-            )
         }
+
+        // Hi-band is gone (silent or near-noise floor) — true cliff.
+        return QualityVerdict(
+            label: "Cooked",
+            color: Color(red: 0.95, green: 0.35, blue: 0.30),
+            detail: "Sharp cliff above 16 kHz — likely upconverted from lossy source."
+        )
     }
 
     private static func medianBand(spectrum: SpectrumGenerator.Spectrum,
