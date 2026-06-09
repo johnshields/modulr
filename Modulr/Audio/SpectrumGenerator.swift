@@ -95,25 +95,40 @@ enum SpectrumGenerator {
         }
         var avg = accum.map { $0 / Float(windowCount) }
 
-        // Smooth over ~bins/100 to suppress per-bin noise before the sweep.
-        let smoothWidth = max(5, bins / 100)
-        let smoothed = movingAverage(avg, width: smoothWidth)
+        let smoothed = Self.smoothSpectrum(avg)
         avg.removeAll()
+        let cutoff = Self.sweepForCliff(
+            spectrum: smoothed,
+            sampleRate: pcm.sampleRate,
+            slopeWindowHz: slopeWindowHz,
+            slopeMinDropDB: slopeMinDropDB
+        )
+        return CutoffResult(cutoffHz: cutoff, sampleRate: pcm.sampleRate)
+    }
 
-        let nyquist = pcm.sampleRate / 2
+    /// Cliff sweep shared by `findCutoff` and `SpectrumAnalysis.verdict(spectrum:)`.
+    /// Takes an averaged + smoothed magnitude spectrum and returns the first
+    /// bin (from Nyquist down) where the 200 Hz window below is ≥ 6 dB louder.
+    static func sweepForCliff(spectrum: [Float], sampleRate: Double,
+                              slopeWindowHz: Double = 200,
+                              slopeMinDropDB: Float = 6) -> Double {
+        let bins = spectrum.count
+        guard bins > 4 else { return sampleRate / 2 }
+        let nyquist = sampleRate / 2
         let hzPerBin = nyquist / Double(bins - 1)
         let slopeWindowBins = max(2, Int(slopeWindowHz / hzPerBin))
-
-        // Sweep from Nyquist down. First bin where the magnitude 200 Hz lower
-        // is at least 6 dB louder marks the cliff.
         for b in stride(from: bins - 1, through: slopeWindowBins, by: -1) {
-            let dropBelow = smoothed[b - slopeWindowBins] - smoothed[b]
-            if dropBelow >= slopeMinDropDB {
-                let cutoff = Double(b) * hzPerBin
-                return CutoffResult(cutoffHz: cutoff, sampleRate: pcm.sampleRate)
+            if spectrum[b - slopeWindowBins] - spectrum[b] >= slopeMinDropDB {
+                return Double(b) * hzPerBin
             }
         }
-        return CutoffResult(cutoffHz: nyquist, sampleRate: pcm.sampleRate)
+        return nyquist
+    }
+
+    /// Public so SpectrumAnalysis can reuse the same smoothing the cache path uses.
+    static func smoothSpectrum(_ values: [Float]) -> [Float] {
+        let width = max(5, values.count / 100)
+        return movingAverage(values, width: width)
     }
 
     private static func movingAverage(_ values: [Float], width: Int) -> [Float] {

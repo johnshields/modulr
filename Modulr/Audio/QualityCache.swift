@@ -20,6 +20,19 @@ final class QualityCache: ObservableObject {
         return q
     }()
 
+    init() {
+        // Flush cached verdicts whenever Library reloads (open folder, sheet
+        // refresh, post-enhancement reload). Prevents stale algorithm output
+        // showing in the row Type column.
+        NotificationCenter.default.addObserver(
+            forName: .libraryFolderReloaded,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.invalidateAll() }
+        }
+    }
+
     func verdict(for url: URL) -> QualityVerdict? { verdicts[url] }
 
     /// Drop the cached verdict for a URL whose file content has changed
@@ -27,6 +40,13 @@ final class QualityCache: ObservableObject {
     func invalidate(_ url: URL) {
         verdicts.removeValue(forKey: url)
         pending.remove(url)
+    }
+
+    /// Wipe every cached verdict. Used when the scoring algorithm changes or
+    /// when the user wants the row labels refreshed against the latest logic.
+    func invalidateAll() {
+        verdicts.removeAll()
+        pending.removeAll()
     }
 
     func requestVerdict(_ url: URL) {

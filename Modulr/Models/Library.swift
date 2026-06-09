@@ -9,6 +9,9 @@ import Combine
  */
 extension Notification.Name {
     static let artworkChanged = Notification.Name("modulr.artworkChanged")
+    /// Posted whenever `Library.openFolder` runs (even on re-scan of the same
+    /// folder) so dependants like QualityCache can invalidate stale state.
+    static let libraryFolderReloaded = Notification.Name("modulr.libraryFolderReloaded")
 }
 
 final class Library: ObservableObject {
@@ -45,6 +48,7 @@ final class Library: ObservableObject {
         store.setLastFolder(url)
         recents = store.addRecent(url, current: recents)
         tracks = []
+        NotificationCenter.default.post(name: .libraryFolderReloaded, object: nil)
         Task { [weak self] in
             let scanned = await LibraryScanner.scan(url)
             await MainActor.run { [weak self] in

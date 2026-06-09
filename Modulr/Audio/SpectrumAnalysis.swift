@@ -116,9 +116,9 @@ enum SpectrumAnalysis {
                      "Cutoff ≈ \(Self.kHz(cutoffHz)) — likely ≤ 128 kbps source.")
     }
 
-    /// Verdict from an already-rendered Spectrum (SpectrumSheet path).
-    /// Averages the matrix across time, runs the same cliff sweep as
-    /// SpectrumGenerator.findCutoff, then routes through the Hz tiering.
+    /// Verdict from an already-rendered Spectrum (SpectrumSheet path). Uses
+    /// the same smoothing + sweep helpers as `SpectrumGenerator.findCutoff`
+    /// so the cache and the sheet agree on the cliff.
     static func verdict(spectrum: SpectrumGenerator.Spectrum,
                         sourceURL: URL? = nil) -> QualityVerdict {
         guard spectrum.timeColumns > 0, spectrum.freqBins > 1 else { return .unknown }
@@ -132,16 +132,10 @@ enum SpectrumAnalysis {
         let denom = Float(spectrum.timeColumns)
         for b in 0..<spectrum.freqBins { avg[b] /= denom }
 
-        let nyquist = spectrum.sampleRate / 2
-        let hzPerBin = nyquist / Double(spectrum.freqBins - 1)
-        let slopeWindowBins = max(2, Int(200.0 / hzPerBin))
-        var cutoff = nyquist
-        for b in stride(from: spectrum.freqBins - 1, through: slopeWindowBins, by: -1) {
-            if avg[b - slopeWindowBins] - avg[b] >= 6 {
-                cutoff = Double(b) * hzPerBin
-                break
-            }
-        }
+        let smoothed = SpectrumGenerator.smoothSpectrum(avg)
+        let cutoff = SpectrumGenerator.sweepForCliff(
+            spectrum: smoothed, sampleRate: spectrum.sampleRate
+        )
         return verdict(cutoffHz: cutoff, sampleRate: spectrum.sampleRate, sourceURL: sourceURL)
     }
 
