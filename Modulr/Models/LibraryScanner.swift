@@ -39,4 +39,31 @@ enum LibraryScanner {
         }
         return found
     }
+
+    /// Build Track entries from an explicit URL list (playlist path). Skips
+    /// URLs that have gone missing on disk so a deleted file in a playlist
+    /// silently drops out instead of crashing the scan.
+    static func scanURLs(_ urls: [URL]) async -> [Track] {
+        var found: [Track] = []
+        let fm = FileManager.default
+        for file in urls {
+            guard fm.fileExists(atPath: file.path),
+                  supportedExtensions.contains(file.pathExtension.lowercased())
+            else { continue }
+            let asset = AVURLAsset(url: file)
+            let items = await MetadataReader.loadMetadata(asset)
+            let seconds = (try? await asset.load(.duration).seconds) ?? 0
+            found.append(Track(
+                url: file,
+                title: file.deletingPathExtension().lastPathComponent,
+                artist: await MetadataReader.artist(items),
+                duration: seconds,
+                bpm: await MetadataReader.bpm(items),
+                key: await MetadataReader.key(items),
+                bitrate: await MetadataReader.bitrateKbps(asset, knownDuration: seconds),
+                trackNumber: await MetadataReader.trackNumber(items)
+            ))
+        }
+        return found
+    }
 }

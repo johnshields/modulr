@@ -3,18 +3,29 @@ import AppKit
 
 /**
  * SidebarView
- * Sidebar listing favourite folders (starred), the current folder with a star
- * toggle, and recents. Folder favourites persist via RecentsStore.
+ * Sidebar listing favourite folders, the current folder + star toggle, recents
+ * and a Playlists placeholder. Section expansion state persists per section via
+ * `@AppStorage` so the layout survives relaunches.
  */
 struct SidebarView: View {
     @EnvironmentObject var library: Library
     @EnvironmentObject var analyzer: Analyzer
     @Binding var showAnalyze: Bool
 
+    @AppStorage("modulr.sidebar.favourites.open")  private var favouritesOpen  = true
+    @AppStorage("modulr.sidebar.folder.open")      private var folderOpen      = true
+    @AppStorage("modulr.sidebar.recent.open")      private var recentOpen      = true
+    @AppStorage("modulr.sidebar.playlists.open")   private var playlistsOpen   = true
+
+    @State private var newPlaylistName = ""
+    @State private var showNewPlaylistAlert = false
+    @State private var renamingPlaylist: Playlist?
+    @State private var renamingName = ""
+
     var body: some View {
         VStack(spacing: 0) {
             List {
-                Section("Favourites") {
+                DisclosureGroup(isExpanded: $favouritesOpen) {
                     if library.favouriteFolders.isEmpty {
                         Text("Star a folder to pin it here")
                             .font(.caption).foregroundStyle(.secondary)
@@ -23,31 +34,16 @@ struct SidebarView: View {
                             folderRow(url, icon: "star.fill")
                         }
                     }
-                }
+                } label: { sectionLabel("Favourites") }
 
-                Section("Folder") {
+                DisclosureGroup(isExpanded: $folderOpen) {
                     Button("Open Folder…", action: pickFolder)
                     if let cur = library.currentFolder {
-                        HStack(spacing: 6) {
-                            Label(cur.lastPathComponent, systemImage: "folder.fill")
-                                .help(cur.path)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            Button {
-                                library.toggleFavouriteFolder(cur)
-                            } label: {
-                                Image(systemName: library.isFavouriteFolder(cur)
-                                      ? "star.fill" : "star")
-                                    .foregroundStyle(library.isFavouriteFolder(cur)
-                                                     ? Theme.accent : .secondary)
-                            }
-                            .buttonStyle(.borderless)
-                            .help(library.isFavouriteFolder(cur)
-                                  ? "Remove from favourites" : "Add to favourites")
-                        }
+                        currentFolderRow(cur)
                     }
-                }
+                } label: { sectionLabel("Folder") }
 
-                Section("Recent") {
+                DisclosureGroup(isExpanded: $recentOpen) {
                     if library.recents.isEmpty {
                         Text("No recents").foregroundStyle(.secondary)
                     } else {
@@ -55,15 +51,100 @@ struct SidebarView: View {
                             folderRow(url, icon: "clock")
                         }
                     }
-                }
+                } label: { sectionLabel("Recent") }
 
-                Section("Playlists") {
-                    Text("No playlists yet").foregroundStyle(.secondary)
+                DisclosureGroup(isExpanded: $playlistsOpen) {
+                    Button("New Playlist…") {
+                        newPlaylistName = ""
+                        showNewPlaylistAlert = true
+                    }
+
+                    if library.playlists.isEmpty {
+                        Text("No playlists yet")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        ForEach(library.playlists) { playlist in
+                            playlistRow(playlist)
+                        }
+                    }
+                } label: { sectionLabel("Playlists") }
+            }
+            .alert("New Playlist", isPresented: $showNewPlaylistAlert) {
+                TextField("Name", text: $newPlaylistName)
+                Button("Create") {
+                    let p = library.createPlaylist(name: newPlaylistName)
+                    library.openPlaylist(p)
                 }
+                .disabled(newPlaylistName.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button("Cancel", role: .cancel) {}
+            }
+            .alert("Rename Playlist",
+                   isPresented: Binding(
+                    get: { renamingPlaylist != nil },
+                    set: { if !$0 { renamingPlaylist = nil } }
+                   )) {
+                TextField("Name", text: $renamingName)
+                Button("Save") {
+                    if let p = renamingPlaylist {
+                        library.renamePlaylist(id: p.id, to: renamingName)
+                    }
+                    renamingPlaylist = nil
+                }
+                Button("Cancel", role: .cancel) { renamingPlaylist = nil }
             }
             .listStyle(.sidebar)
         }
         .frame(minWidth: 220)
+    }
+
+    /// Header text styled to match a native sidebar Section title.
+    private func sectionLabel(_ title: String) -> some View {
+        Text(title)
+            .font(.headline)
+            .foregroundStyle(.secondary)
+    }
+
+    private func currentFolderRow(_ cur: URL) -> some View {
+        HStack(spacing: 6) {
+            Label(cur.lastPathComponent, systemImage: "folder.fill")
+                .help(cur.path)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                library.toggleFavouriteFolder(cur)
+            } label: {
+                Image(systemName: library.isFavouriteFolder(cur) ? "star.fill" : "star")
+                    .foregroundStyle(library.isFavouriteFolder(cur) ? Theme.accent : .secondary)
+            }
+            .buttonStyle(.borderless)
+            .help(library.isFavouriteFolder(cur)
+                  ? "Remove from favourites" : "Add to favourites")
+        }
+    }
+
+    @ViewBuilder
+    private func playlistRow(_ playlist: Playlist) -> some View {
+        let active = library.currentPlaylist?.id == playlist.id
+        Button {
+            library.openPlaylist(playlist)
+        } label: {
+            Label(playlist.name, systemImage: "music.note.list")
+                .foregroundStyle(active ? Theme.accent : .primary)
+        }
+        .buttonStyle(.plain)
+        .help("\(playlist.trackURLs.count) tracks")
+        .dropDestination(for: URL.self) { urls, _ in
+            library.addToPlaylist(playlist.id, trackURLs: urls)
+            return !urls.isEmpty
+        }
+        .contextMenu {
+            Button("Rename…") {
+                renamingPlaylist = playlist
+                renamingName = playlist.name
+            }
+            Button("Delete", role: .destructive) {
+                library.deletePlaylist(id: playlist.id)
+            }
+        }
     }
 
     @ViewBuilder

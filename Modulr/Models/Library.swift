@@ -14,6 +14,8 @@ extension Notification.Name {
     static let libraryFolderReloaded = Notification.Name("modulr.libraryFolderReloaded")
 }
 
+enum LibrarySource: Equatable { case folder, playlist }
+
 final class Library: ObservableObject {
     @Published var tracks: [Track] = []
     @Published var favorites: Set<UUID> = []
@@ -21,12 +23,68 @@ final class Library: ObservableObject {
     @Published var favouriteFolders: [URL] = []
     @Published var currentFolder: URL?
 
+    @Published var playlists: [Playlist] = []
+    @Published var currentPlaylist: Playlist?
+    @Published var source: LibrarySource = .folder
+
     private let store = RecentsStore()
+    private let playlistStore = PlaylistStore()
 
     init() {
         recents = store.loadRecents()
         favouriteFolders = store.loadFavouriteFolders()
+        playlists = playlistStore.loadAll()
         if let url = store.lastFolder { openFolder(url) }
+    }
+
+    // MARK: - Playlists
+
+    func createPlaylist(name: String) -> Playlist {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        let playlist = Playlist(name: trimmed.isEmpty ? "New Playlist" : trimmed)
+        playlists.append(playlist)
+        playlists.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        playlistStore.save(playlist)
+        return playlist
+    }
+
+    func renamePlaylist(id: UUID, to newName: String) {
+        guard let idx = playlists.firstIndex(where: { $0.id == id }) else { return }
+        playlists[idx].name = newName
+        playlists.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        playlistStore.save(playlists[idx])
+        if currentPlaylist?.id == id { currentPlaylist = playlists[idx] }
+    }
+
+    func deletePlaylist(id: UUID) {
+        playlists.removeAll { $0.id == id }
+        playlistStore.delete(id: id)
+        if currentPlaylist?.id == id {
+            currentPlaylist = nil
+            if source == .playlist, let folder = currentFolder { openFolder(folder) }
+        }
+    }
+
+    func addToPlaylist(_ playlistID: UUID, trackURLs: [URL]) {
+        guard let idx = playlists.firstIndex(where: { $0.id == playlistID }) else { return }
+        for url in trackURLs where !playlists[idx].trackURLs.contains(url) {
+            playlists[idx].trackURLs.append(url)
+        }
+        playlistStore.save(playlists[idx])
+        if currentPlaylist?.id == playlistID { openPlaylist(playlists[idx]) }
+    }
+
+    func openPlaylist(_ playlist: Playlist) {
+        currentPlaylist = playlist
+        source = .playlist
+        tracks = []
+        NotificationCenter.default.post(name: .libraryFolderReloaded, object: nil)
+        Task { [weak self] in
+            let scanned = await LibraryScanner.scanURLs(playlist.trackURLs)
+            await MainActor.run { [weak self] in
+                self?.tracks = scanned
+            }
+        }
     }
 
     func isFavouriteFolder(_ url: URL) -> Bool {
@@ -44,6 +102,8 @@ final class Library: ObservableObject {
 
     func openFolder(_ url: URL) {
         // Surface folder metadata immediately; scan tracks off main thread.
+        source = .folder
+        currentPlaylist = nil
         currentFolder = url
         store.setLastFolder(url)
         recents = store.addRecent(url, current: recents)

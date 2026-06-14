@@ -11,7 +11,7 @@ struct TrackListView: View {
     let onPlay: (URL) -> Void
 
     @State private var selection: Track.ID?
-    @State private var sortOrder: [KeyPathComparator<Track>] = [.init(\.trackNumberSort)]
+    @State private var sortOrder: [KeyPathComparator<Track>] = [.init(\.title)]
     @State private var tagTrack: Track?
     @State private var spectrumTrack: Track?
     @State private var convertTrack: Track?
@@ -19,6 +19,7 @@ struct TrackListView: View {
     @State private var loudnessTrack: Track?
     @State private var deleteTrack: Track?
     @State private var search = ""
+    @State private var unanalysedOnly = false
 
     @State private var editItems: [Track] = []
     @State private var dragID: UUID?
@@ -33,8 +34,12 @@ struct TrackListView: View {
 
     private var visible: [Track] {
         let q = search.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return sorted }
-        return sorted.filter { t in
+        var pool = sorted
+        if unanalysedOnly {
+            pool = pool.filter { $0.bpm == nil || $0.key == nil }
+        }
+        guard !q.isEmpty else { return pool }
+        return pool.filter { t in
             if t.title.lowercased().contains(q) { return true }
             if let a = t.artist, a.lowercased().contains(q) { return true }
             if let k = t.key {
@@ -44,6 +49,10 @@ struct TrackListView: View {
             if let b = t.bpm, String(b) == q { return true }
             return false
         }
+    }
+
+    private var unanalysedCount: Int {
+        library.tracks.filter { $0.bpm == nil || $0.key == nil }.count
     }
 
     private var currentKey: String? {
@@ -91,10 +100,6 @@ struct TrackListView: View {
             DeleteSheet(
                 track: t,
                 accent: Self.accent,
-                onTrashRenumber: {
-                    deleteAndRenumber(t)
-                    deleteTrack = nil
-                },
                 onTrash: {
                     try? library.deleteTrack(t.id)
                     deleteTrack = nil
@@ -145,32 +150,52 @@ struct TrackListView: View {
 
             Spacer()
 
+            // Folder mode: filter to tracks missing BPM or key so the user
+            // can batch through un-analysed downloads quickly.
+            if !editingOrder && library.source == .folder {
+                Toggle(isOn: $unanalysedOnly) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "waveform.badge.exclamationmark")
+                        Text("Un-analysed\(unanalysedCount > 0 ? " (\(unanalysedCount))" : "")")
+                    }
+                }
+                .toggleStyle(.button)
+                .controlSize(.small)
+                .help("Show only tracks missing BPM or key")
+
+                if unanalysedOnly && unanalysedCount > 0 {
+                    Button {
+                        guard let cur = library.currentFolder else { return }
+                        analyzer.analyzeFolder(cur, rename: analyzer.renameAfter) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Analyse \(unanalysedCount)",
+                              systemImage: "waveform.badge.magnifyingglass")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.accent)
+                    .controlSize(.small)
+                    .help("Detect BPM and key for the un-analysed tracks in this folder")
+                }
+            }
+
             if editingOrder {
                 Button("Cancel") { editingOrder = false }.disabled(applying)
                 Button(applying ? "Applying…" : "Apply") { applyEdit() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(editItems.isEmpty || applying)
-            } else {
-                Button {
-                    editItems = sorted
-                    editingOrder = true
-                } label: { Label("Edit Order", systemImage: "list.number") }
-                .controlSize(.small)
-                .disabled(library.tracks.isEmpty)
             }
+            // Edit Order is reserved for playlist mode — moved out of folder
+            // view so opening a fresh folder can't accidentally write TRCK/trkn
+            // numbers across tracks shared between sets.
         }
         .padding(.horizontal, 12).padding(.vertical, 6)
     }
 
     private var tableBody: some View {
+        // # column lives in playlist mode only — folder mode trusts filename
+        // order, never reads or writes TRCK/trkn from this view.
         Table(visible, selection: $selection, sortOrder: $sortOrder) {
-            TableColumn("#", value: \.trackNumberSort) { t in
-                Text(t.trackNumberDisplay)
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-            .width(min: 30, ideal: 40, max: 55)
-
             TableColumn("Name", value: \.title) { t in
                 HStack {
                     Button {
@@ -180,6 +205,9 @@ struct TrackListView: View {
                     }.buttonStyle(.borderless)
                     Text(t.title).lineLimit(1)
                 }
+                // Drag the file URL so the sidebar's playlist rows can accept
+                // the drop and append the track.
+                .draggable(t.url)
             }
             .width(min: 220, ideal: 320)
 
@@ -337,6 +365,21 @@ struct TrackListView: View {
             Label("Normalise Loudness…", systemImage: "speaker.wave.3.fill")
         }
         Divider()
+        Menu {
+            ForEach(library.playlists) { p in
+                Button(p.name) {
+                    library.addToPlaylist(p.id, trackURLs: [t.url])
+                }
+            }
+            if !library.playlists.isEmpty { Divider() }
+            Button("New Playlist…") {
+                let p = library.createPlaylist(name: "New Playlist")
+                library.addToPlaylist(p.id, trackURLs: [t.url])
+            }
+        } label: {
+            Label("Add to Playlist", systemImage: "text.badge.plus")
+        }
+        Divider()
         Button {
             NSWorkspace.shared.activateFileViewerSelecting([t.url])
         } label: { Label("Show in Finder", systemImage: "folder") }
@@ -352,16 +395,6 @@ struct TrackListView: View {
     private func loadArt(_ url: URL) async {
         guard artCache[url] == nil, let img = await ArtworkLoader.load(url) else { return }
         artCache[url] = img
-    }
-
-    private func deleteAndRenumber(_ t: Track) {
-        let remainingIDs = sorted.filter { $0.id != t.id }.map(\.id)
-        do {
-            try library.deleteTrack(t.id)
-            library.renumberByTag(orderedIDs: remainingIDs)
-        } catch {
-            print("delete+renumber fail: \(error)")
-        }
     }
 
     private func applyEdit() {
@@ -383,9 +416,12 @@ struct TrackListView: View {
     private struct DeleteSheet: View {
         let track: Track
         let accent: Color
-        let onTrashRenumber: () -> Void
         let onTrash: () -> Void
         let onCancel: () -> Void
+        /// Playlist warning hook — set once the playlist feature lands.
+        /// Returns a list of playlist names the track currently belongs to so
+        /// the sheet can warn the user before they trash a shared track.
+        var playlistMemberships: () -> [String] = { [] }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 14) {
@@ -399,25 +435,26 @@ struct TrackListView: View {
                     }
                 }
 
+                let memberships = playlistMemberships()
+                if !memberships.isEmpty {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.yellow)
+                        Text("Used in: \(memberships.joined(separator: ", ")). Will be removed from those playlists.")
+                            .font(.caption).foregroundStyle(.yellow)
+                    }
+                }
+
                 Divider()
 
                 VStack(spacing: 8) {
-                    Button(action: onTrashRenumber) {
-                        Label("Move to Trash & Renumber", systemImage: "list.number")
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(accent)
-
                     Button(role: .destructive, action: onTrash) {
                         Label("Move to Trash", systemImage: "trash")
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 6)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
                     .tint(.red)
-
                 }
             }
             .padding(20)
