@@ -109,10 +109,24 @@ struct TrackListView: View {
         }
     }
 
+    private var totalDurationDisplay: String {
+        let total = Int(library.tracks.reduce(0) { $0 + $1.duration }.rounded())
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        let s = total % 60
+        return h > 0 ? "\(h)h \(m)m \(s)s" : "\(m)m \(s)s"
+    }
+
     private var header: some View {
         HStack(spacing: 10) {
-            Text("\(library.tracks.count) tracks")
-                .font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Text("\(library.tracks.count) tracks")
+                if library.source == .playlist && !library.tracks.isEmpty {
+                    Text("|").foregroundStyle(.tertiary)
+                    Text(totalDurationDisplay)
+                }
+            }
+            .font(.caption).foregroundStyle(.secondary)
 
             if !editingOrder {
                 HStack(spacing: 5) {
