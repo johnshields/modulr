@@ -74,6 +74,44 @@ final class Library: ObservableObject {
         if currentPlaylist?.id == playlistID { openPlaylist(playlists[idx]) }
     }
 
+    /// Parse the analyzer's RENAMED log lines and rewrite playlist URLs that
+    /// point at the now-moved source file. Without this, a track analysed
+    /// with rename would silently drop out of any playlist that referenced it
+    /// because the URL no longer exists on disk.
+    func applyRenameMap(logLines: [String]) {
+        guard let folder = currentFolder else { return }
+        var renames: [URL: URL] = [:]
+        for line in logLines where line.hasPrefix("RENAMED: ") {
+            let body = String(line.dropFirst("RENAMED: ".count))
+            let parts = body.components(separatedBy: " -> ")
+            guard parts.count == 2 else { continue }
+            let old = folder.appendingPathComponent(
+                parts[0].trimmingCharacters(in: .whitespaces))
+            let new = folder.appendingPathComponent(
+                parts[1].trimmingCharacters(in: .whitespaces))
+            renames[old] = new
+        }
+        guard !renames.isEmpty else { return }
+
+        for (idx, var playlist) in playlists.enumerated() {
+            var dirty = false
+            for (urlIdx, url) in playlist.trackURLs.enumerated() {
+                if let mapped = renames[url] {
+                    playlist.trackURLs[urlIdx] = mapped
+                    dirty = true
+                }
+            }
+            if dirty {
+                playlists[idx] = playlist
+                playlistStore.save(playlist)
+            }
+        }
+        if let cur = currentPlaylist,
+           let refreshed = playlists.first(where: { $0.id == cur.id }) {
+            currentPlaylist = refreshed
+        }
+    }
+
     func openPlaylist(_ playlist: Playlist) {
         currentPlaylist = playlist
         source = .playlist

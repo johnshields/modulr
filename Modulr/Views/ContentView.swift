@@ -50,6 +50,10 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showAnalyze) {
             AnalyzeSheet(analyzer: analyzer) {
+                // Pick up RENAMED lines before reloading so playlists keep
+                // pointing at the analysed-and-renamed file rather than the
+                // now-missing original.
+                library.applyRenameMap(logLines: analyzer.log)
                 if let f = library.currentFolder { library.openFolder(f) }
             }
         }
