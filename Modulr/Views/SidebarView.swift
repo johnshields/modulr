@@ -14,7 +14,6 @@ struct SidebarView: View {
 
     @AppStorage("modulr.sidebar.favourites.open")  private var favouritesOpen  = true
     @AppStorage("modulr.sidebar.folder.open")      private var folderOpen      = true
-    @AppStorage("modulr.sidebar.recent.open")      private var recentOpen      = true
     @AppStorage("modulr.sidebar.playlists.open")   private var playlistsOpen   = true
 
     @State private var newPlaylistName = ""
@@ -41,17 +40,13 @@ struct SidebarView: View {
                     if let cur = library.currentFolder {
                         currentFolderRow(cur)
                     }
-                } label: { sectionLabel("Folder") }
-
-                DisclosureGroup(isExpanded: $recentOpen) {
-                    if library.recents.isEmpty {
-                        Text("No recents").foregroundStyle(.secondary)
-                    } else {
-                        ForEach(library.recents, id: \.self) { url in
+                    let rest = library.recents.filter { $0 != library.currentFolder }
+                    if !rest.isEmpty {
+                        ForEach(rest, id: \.self) { url in
                             folderRow(url, icon: "clock")
                         }
                     }
-                } label: { sectionLabel("Recent") }
+                } label: { sectionLabel("Folder") }
 
                 DisclosureGroup(isExpanded: $playlistsOpen) {
                     Button("New Playlist…") {
@@ -97,7 +92,6 @@ struct SidebarView: View {
         .frame(minWidth: 220)
     }
 
-    /// Header text styled to match a native sidebar Section title.
     private func sectionLabel(_ title: String) -> some View {
         Text(title)
             .font(.headline)
@@ -106,7 +100,10 @@ struct SidebarView: View {
 
     private func currentFolderRow(_ cur: URL) -> some View {
         HStack(spacing: 6) {
-            Label(cur.lastPathComponent, systemImage: "folder.fill")
+            Image(systemName: "folder.fill")
+                .foregroundStyle(Theme.accent)
+            Text(cur.lastPathComponent)
+                .fontWeight(.semibold)
                 .help(cur.path)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button {

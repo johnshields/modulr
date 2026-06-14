@@ -12,16 +12,19 @@ enum LibraryScanner {
 
     static func scan(_ folder: URL) async -> [Track] {
         let fm = FileManager.default
-        // Top-level entries only — subdirectories are not descended into.
+        let keys: [URLResourceKey] = [
+            .isRegularFileKey, .addedToDirectoryDateKey, .creationDateKey,
+        ]
         guard let entries = try? fm.contentsOfDirectory(
             at: folder,
-            includingPropertiesForKeys: [.isRegularFileKey],
+            includingPropertiesForKeys: keys,
             options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants, .skipsPackageDescendants]
         ) else { return [] }
 
         var found: [Track] = []
         for file in entries {
-            let isFile = (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) ?? false
+            let values = try? file.resourceValues(forKeys: Set(keys))
+            let isFile = values?.isRegularFile ?? false
             guard isFile, supportedExtensions.contains(file.pathExtension.lowercased()) else { continue }
             let asset = AVURLAsset(url: file)
             let items = await MetadataReader.loadMetadata(asset)
@@ -34,15 +37,13 @@ enum LibraryScanner {
                 bpm: await MetadataReader.bpm(items),
                 key: await MetadataReader.key(items),
                 bitrate: await MetadataReader.bitrateKbps(asset, knownDuration: seconds),
-                trackNumber: await MetadataReader.trackNumber(items)
+                trackNumber: await MetadataReader.trackNumber(items),
+                dateAdded: values?.addedToDirectoryDate ?? values?.creationDate
             ))
         }
         return found
     }
 
-    /// Build Track entries from an explicit URL list (playlist path). Skips
-    /// URLs that have gone missing on disk so a deleted file in a playlist
-    /// silently drops out instead of crashing the scan.
     static func scanURLs(_ urls: [URL]) async -> [Track] {
         var found: [Track] = []
         let fm = FileManager.default
@@ -50,6 +51,9 @@ enum LibraryScanner {
             guard fm.fileExists(atPath: file.path),
                   supportedExtensions.contains(file.pathExtension.lowercased())
             else { continue }
+            let values = try? file.resourceValues(forKeys: [
+                .addedToDirectoryDateKey, .creationDateKey,
+            ])
             let asset = AVURLAsset(url: file)
             let items = await MetadataReader.loadMetadata(asset)
             let seconds = (try? await asset.load(.duration).seconds) ?? 0
@@ -61,7 +65,8 @@ enum LibraryScanner {
                 bpm: await MetadataReader.bpm(items),
                 key: await MetadataReader.key(items),
                 bitrate: await MetadataReader.bitrateKbps(asset, knownDuration: seconds),
-                trackNumber: await MetadataReader.trackNumber(items)
+                trackNumber: await MetadataReader.trackNumber(items),
+                dateAdded: values?.addedToDirectoryDate ?? values?.creationDate
             ))
         }
         return found

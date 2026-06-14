@@ -30,10 +30,6 @@ enum MetadataReader {
         return nil
     }
 
-    /// Track number from ID3 `TRCK` or MP4 `trkn`. Restricted to explicit
-    /// frame identifiers — AVFoundation synthesises a default trackNumber of 1
-    /// on the `commonKeyTrackNumber` common key for many untagged files, which
-    /// caused every new download to display "1" in the # column.
     static func trackNumber(_ items: [AVMetadataItem]) async -> Int? {
         for item in items {
             let id = item.identifier?.rawValue ?? ""
@@ -53,7 +49,7 @@ enum MetadataReader {
         for item in items where item.commonKey == .commonKeyArtist {
             if let value = await loadString(item)?.trimmingCharacters(in: .whitespaces),
                !value.isEmpty {
-                return value
+                return value.replacingOccurrences(of: "/", with: ", ")
             }
         }
         return nil
@@ -70,7 +66,6 @@ enum MetadataReader {
             let bps = (try? await track.load(.estimatedDataRate)) ?? 0
             if bps > 0 { return Int((bps / 1000).rounded()) }
         }
-        // Fallback: file size in bytes × 8 / duration in seconds, in kbps
         guard knownDuration > 0 else { return nil }
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: asset.url.path),
               let size = attrs[.size] as? NSNumber else { return nil }

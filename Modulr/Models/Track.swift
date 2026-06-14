@@ -10,7 +10,22 @@ struct Track: Identifiable, Hashable {
     var key: String?
     var bitrate: Int?
     var trackNumber: Int?
+    var dateAdded: Date?
     var tags: [String] = []
+
+    var dateAddedSort: Date { dateAdded ?? .distantPast }
+    var dateAddedDisplay: String {
+        guard let date = dateAdded else { return "" }
+        let fmt = Calendar.current.isDate(date, equalTo: Date(), toGranularity: .year)
+            ? Self.thisYearFmt : Self.oldYearFmt
+        return fmt.string(from: date)
+    }
+    private static let thisYearFmt: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "d MMM HH:mm"; return f
+    }()
+    private static let oldYearFmt: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "d MMM yyyy"; return f
+    }()
 
     var trackNumberSort: Int { trackNumber ?? Int.max }
     var trackNumberDisplay: String { trackNumber.map(String.init) ?? "" }
@@ -33,9 +48,6 @@ struct Track: Identifiable, Hashable {
     var artistDisplay: String { artist ?? "" }
     var artistSort: String { artist ?? "" }
 
-    /**
-     * Returns a copy of self with selected fields replaced. Preserves id.
-     */
     func with(
         url: URL? = nil,
         title: String? = nil,
@@ -43,7 +55,8 @@ struct Track: Identifiable, Hashable {
         duration: TimeInterval? = nil,
         bpm: Int?? = nil,
         key: String?? = nil,
-        trackNumber: Int?? = nil
+        trackNumber: Int?? = nil,
+        dateAdded: Date?? = nil
     ) -> Track {
         var copy = self
         if let url { copy.url = url }
@@ -53,6 +66,7 @@ struct Track: Identifiable, Hashable {
         if case let .some(value) = bpm { copy.bpm = value }
         if case let .some(value) = key { copy.key = value }
         if case let .some(value) = trackNumber { copy.trackNumber = value }
+        if case let .some(value) = dateAdded { copy.dateAdded = value }
         return copy
     }
 }

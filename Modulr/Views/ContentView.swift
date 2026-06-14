@@ -50,9 +50,6 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showAnalyze) {
             AnalyzeSheet(analyzer: analyzer) {
-                // Pick up RENAMED lines before reloading so playlists keep
-                // pointing at the analysed-and-renamed file rather than the
-                // now-missing original.
                 library.applyRenameMap(logLines: analyzer.log)
                 if let f = library.currentFolder { library.openFolder(f) }
             }
@@ -126,7 +123,6 @@ struct ContentView: View {
         SpacebarMonitorState.installed = true
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak player] event in
             guard event.keyCode == 49 else { return event }
-            // Let text fields receive space normally
             if let resp = NSApp.keyWindow?.firstResponder,
                resp is NSText || resp is NSTextView ||
                (resp as? NSView)?.className.contains("Text") == true {

@@ -9,8 +9,6 @@ import Combine
  */
 extension Notification.Name {
     static let artworkChanged = Notification.Name("modulr.artworkChanged")
-    /// Posted whenever `Library.openFolder` runs (even on re-scan of the same
-    /// folder) so dependants like QualityCache can invalidate stale state.
     static let libraryFolderReloaded = Notification.Name("modulr.libraryFolderReloaded")
 }
 
@@ -74,10 +72,6 @@ final class Library: ObservableObject {
         if currentPlaylist?.id == playlistID { openPlaylist(playlists[idx]) }
     }
 
-    /// Parse the analyzer's RENAMED log lines and rewrite playlist URLs that
-    /// point at the now-moved source file. Without this, a track analysed
-    /// with rename would silently drop out of any playlist that referenced it
-    /// because the URL no longer exists on disk.
     func applyRenameMap(logLines: [String]) {
         guard let folder = currentFolder else { return }
         var renames: [URL: URL] = [:]
@@ -112,6 +106,38 @@ final class Library: ObservableObject {
         }
     }
 
+    func updatePlaylistURL(from old: URL, to new: URL) {
+        guard old != new else { return }
+        for (idx, var playlist) in playlists.enumerated() {
+            var dirty = false
+            for (urlIdx, url) in playlist.trackURLs.enumerated() where url == old {
+                playlist.trackURLs[urlIdx] = new
+                dirty = true
+            }
+            if dirty {
+                playlists[idx] = playlist
+                playlistStore.save(playlist)
+            }
+        }
+        if let cur = currentPlaylist,
+           let refreshed = playlists.first(where: { $0.id == cur.id }) {
+            currentPlaylist = refreshed
+        }
+    }
+
+    func reorderCurrentPlaylist(orderedURLs: [URL]) {
+        guard let cur = currentPlaylist,
+              let idx = playlists.firstIndex(where: { $0.id == cur.id }) else { return }
+        var playlist = playlists[idx]
+        let existing = Set(playlist.trackURLs)
+        let filtered = orderedURLs.filter { existing.contains($0) }
+        let missing = playlist.trackURLs.filter { !filtered.contains($0) }
+        playlist.trackURLs = filtered + missing
+        playlists[idx] = playlist
+        playlistStore.save(playlist)
+        currentPlaylist = playlist
+    }
+
     func openPlaylist(_ playlist: Playlist) {
         currentPlaylist = playlist
         source = .playlist
@@ -139,7 +165,6 @@ final class Library: ObservableObject {
     }
 
     func openFolder(_ url: URL) {
-        // Surface folder metadata immediately; scan tracks off main thread.
         source = .folder
         currentPlaylist = nil
         currentFolder = url
@@ -159,20 +184,16 @@ final class Library: ObservableObject {
         if favorites.contains(id) { favorites.remove(id) } else { favorites.insert(id) }
     }
 
-    /**
-     * Rename file on disk and sync ID3 title to match the new stem.
-     */
     func rename(_ id: UUID, to newName: String) throws {
         guard let idx = tracks.firstIndex(where: { $0.id == id }) else { return }
-        let newURL = try TagService.rename(tracks[idx].url, to: newName)
+        let oldURL = tracks[idx].url
+        let newURL = try TagService.rename(oldURL, to: newName)
         let stem = newURL.deletingPathExtension().lastPathComponent
         if TagService.supportsTags(newURL) { TagService.setTitle(newURL, title: stem) }
         tracks[idx] = tracks[idx].with(url: newURL, title: stem)
+        updatePlaylistURL(from: oldURL, to: newURL)
     }
 
-    /**
-     * Move file to Trash + remove from list
-     */
     func deleteTrack(_ id: UUID) throws {
         guard let idx = tracks.firstIndex(where: { $0.id == id }) else { return }
         var resultingURL: NSURL?
@@ -181,9 +202,6 @@ final class Library: ObservableObject {
         favorites.remove(id)
     }
 
-    /**
-     * Write tag changes. If meta.title differs from filename stem, also rename file to match.
-     */
     func updateTags(_ id: UUID, meta: TrackMeta) throws {
         guard let idx = tracks.firstIndex(where: { $0.id == id }) else { return }
         let original = tracks[idx]
@@ -192,6 +210,7 @@ final class Library: ObservableObject {
 
         if !meta.title.isEmpty && meta.title != currentStem {
             workingURL = try TagService.rename(workingURL, to: meta.title)
+            updatePlaylistURL(from: original.url, to: workingURL)
         }
         try TagService.write(meta, to: workingURL)
 
@@ -204,10 +223,6 @@ final class Library: ObservableObject {
         )
     }
 
-    /**
-     * Set/replace artwork on mp3 (preserves all other frames).
-     * Posts ArtworkChanged so observing views can refresh.
-     */
     func setArtwork(_ url: URL, imageData: Data, mime: String) {
         TagService.setArtwork(url, imageData: imageData, mime: mime)
         NotificationCenter.default.post(name: .artworkChanged, object: url, userInfo: ["data": imageData])
@@ -218,10 +233,6 @@ final class Library: ObservableObject {
         NotificationCenter.default.post(name: .artworkChanged, object: url)
     }
 
-    /**
-     * Renumber via track-number tag only (TRCK / trkn). No filename change.
-     * Rekordbox + Serato + iTunes honour this, so library paths stay intact.
-     */
     func renumberByTag(orderedIDs: [UUID], onProgress: ((Int, Int) -> Void)? = nil) {
         let total = orderedIDs.count
         var newOrder: [Track] = []
@@ -233,7 +244,6 @@ final class Library: ObservableObject {
             newOrder.append(tracks[idx].with(trackNumber: .some(index)))
             onProgress?(index, total)
         }
-        // Append any tracks not part of the ordering (defensive).
         let orderedSet = Set(orderedIDs)
         let leftovers = tracks.filter { !orderedSet.contains($0.id) }
         DispatchQueue.main.async { [newOrder, leftovers] in

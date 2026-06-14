@@ -65,6 +65,8 @@ class _Backend(ABC):
     @abstractmethod
     def rewrite_normalised_key(self, path, musical): ...
     @abstractmethod
+    def rewrite_normalised_artist(self, path): ...
+    @abstractmethod
     def sync_title_to_filename(self, path): ...
 
 
@@ -115,8 +117,13 @@ class _ID3Backend(_Backend):
         tag = audio.tags.get("TPE1")
         if not tag or not tag.text:
             return None
-        try: return tag.text[0] or None
-        except Exception: return None
+        try:
+            raw = tag.text[0] or None
+        except Exception:
+            return None
+        # ID3 v2.3 stores multi-artist as "Artist1/Artist2" — render with comma
+        # separation so filenames + display read naturally.
+        return raw.replace("/", ", ") if raw else None
 
     def write_pair(self, path, bpm, musical, title=None, artist=None):
         audio = self._open(path)
@@ -185,6 +192,21 @@ class _ID3Backend(_Backend):
         if current and current.text and current.text[0] == musical:
             return
         audio.tags.add(TKEY(encoding=3, text=musical))
+        try: self._save(audio)
+        except Exception: pass
+
+    def rewrite_normalised_artist(self, path):
+        """Replace any `/` in TPE1 with `, ` so the multi-artist convention
+        from ID3 v2.3 is persisted, not just rendered, as comma-separated.
+        """
+        audio = self._open(path)
+        if audio is None or audio.tags is None: return
+        tag = audio.tags.get("TPE1")
+        if not tag or not tag.text: return
+        try: raw = tag.text[0]
+        except Exception: return
+        if not raw or "/" not in raw: return
+        audio.tags.add(TPE1(encoding=3, text=raw.replace("/", ", ")))
         try: self._save(audio)
         except Exception: pass
 
@@ -354,6 +376,20 @@ class _MP4Backend(_Backend):
         try: self._save(audio)
         except Exception: pass
 
+    def rewrite_normalised_artist(self, path):
+        """MP4 atoms use list-form multi-artist so `/` is rarer; normalise
+        anyway for parity with the ID3 backend."""
+        audio = self._open(path)
+        if audio is None: return
+        v = audio.get(_MP4_ATOMS["artist"])
+        if not v: return
+        try: raw = str(v[0])
+        except Exception: return
+        if "/" not in raw: return
+        audio[_MP4_ATOMS["artist"]] = [raw.replace("/", ", ")]
+        try: self._save(audio)
+        except Exception: pass
+
     def sync_title_to_filename(self, path):
         stem = os.path.splitext(os.path.basename(path))[0]
         audio = self._open(path)
@@ -496,6 +532,10 @@ class TagIO:
     def rewrite_normalised_key(self, path, musical):
         b = self._backend(path)
         if b: b.rewrite_normalised_key(path, musical)
+
+    def rewrite_normalised_artist(self, path):
+        b = self._backend(path)
+        if b: b.rewrite_normalised_artist(path)
 
     # Title to filename invariant
 

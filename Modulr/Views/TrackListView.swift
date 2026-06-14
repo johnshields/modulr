@@ -150,8 +150,18 @@ struct TrackListView: View {
 
             Spacer()
 
-            // Folder mode: filter to tracks missing BPM or key so the user
-            // can batch through un-analysed downloads quickly.
+            if !editingOrder && library.source == .playlist && !library.tracks.isEmpty {
+                Button {
+                    editItems = sorted
+                    editingOrder = true
+                } label: {
+                    Label("Edit Order", systemImage: "arrow.up.arrow.down")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Drag to reorder. Apply writes track numbers.")
+            }
+
             if !editingOrder && library.source == .folder {
                 Toggle(isOn: $unanalysedOnly) {
                     HStack(spacing: 4) {
@@ -187,17 +197,20 @@ struct TrackListView: View {
                     .keyboardShortcut(.defaultAction)
                     .disabled(editItems.isEmpty || applying)
             }
-            // Edit Order is reserved for playlist mode — moved out of folder
-            // view so opening a fresh folder can't accidentally write TRCK/trkn
-            // numbers across tracks shared between sets.
         }
         .padding(.horizontal, 12).padding(.vertical, 6)
     }
 
     private var tableBody: some View {
-        // # column lives in playlist mode only — folder mode trusts filename
-        // order, never reads or writes TRCK/trkn from this view.
         Table(visible, selection: $selection, sortOrder: $sortOrder) {
+            TableColumn("#", value: \.trackNumberSort) { t in
+                Text(t.trackNumberDisplay)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+            .width(min: 32, ideal: 40, max: 56)
+            .defaultVisibility(library.source == .playlist ? .visible : .hidden)
+
             TableColumn("Name", value: \.title) { t in
                 HStack {
                     Button {
@@ -207,9 +220,6 @@ struct TrackListView: View {
                     }.buttonStyle(.borderless)
                     Text(t.title).lineLimit(1)
                 }
-                // Drag the file URL so the sidebar's playlist rows can accept
-                // the drop and append the track.
-                .draggable(t.url)
             }
             .width(min: 220, ideal: 320)
 
@@ -253,6 +263,13 @@ struct TrackListView: View {
                 .onAppear { quality.requestVerdict(t.url) }
             }
             .width(min: 130, ideal: 170, max: 220)
+
+            TableColumn("Added", value: \.dateAddedSort) { t in
+                Text(t.dateAddedDisplay)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .width(min: 100, ideal: 120, max: 150)
         }
         .contextMenu(forSelectionType: Track.ID.self) { ids in
             if let id = ids.first, let t = sorted.first(where: { $0.id == id }) {
@@ -401,10 +418,15 @@ struct TrackListView: View {
 
     private func applyEdit() {
         let ids = editItems.map(\.id)
+        let urls = editItems.map(\.url)
         let lib = library
+        let inPlaylist = library.source == .playlist
         applyProgress = (0, ids.count)
         applying = true
         DispatchQueue.global(qos: .userInitiated).async {
+            if inPlaylist {
+                DispatchQueue.main.sync { lib.reorderCurrentPlaylist(orderedURLs: urls) }
+            }
             lib.renumberByTag(orderedIDs: ids) { done, total in
                 DispatchQueue.main.async { applyProgress = (done, total) }
             }
@@ -420,9 +442,6 @@ struct TrackListView: View {
         let accent: Color
         let onTrash: () -> Void
         let onCancel: () -> Void
-        /// Playlist warning hook — set once the playlist feature lands.
-        /// Returns a list of playlist names the track currently belongs to so
-        /// the sheet can warn the user before they trash a shared track.
         var playlistMemberships: () -> [String] = { [] }
 
         var body: some View {

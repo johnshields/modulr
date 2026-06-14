@@ -171,10 +171,6 @@ struct BrightenSheet: View {
         }
     }
 
-    /// Discard whenever the rank slips. If the source already carries real
-    /// top-end (hasHealthyTop), surface a harshness warning instead of a
-    /// straight Replace — the exciter usually just sharpens what is already
-    /// there. Otherwise compare ranks: Cooked < Muddy < Punchy < Crisp.
     private var recommendation: Recommendation {
         guard let orig = originalVerdict, let bright = brightVerdict,
               orig.rank >= 0, bright.rank >= 0
@@ -252,9 +248,6 @@ struct BrightenSheet: View {
         player.play()
     }
 
-/// Trash the original then rename the _bright sibling onto its path so the
-    /// rest of the library (Rekordbox links, recents, playlists) keeps pointing
-    /// at the same filename — but with brighter audio.
     private func replaceOriginal() {
         let source = sourceURL
         let bright = targetURL

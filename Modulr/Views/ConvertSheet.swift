@@ -181,7 +181,7 @@ struct ConvertSheet: View {
         player.play()
     }
 
-private func trashOriginalAndClose() {
+    private func trashOriginalAndClose() {
         do {
             try FileManager.default.trashItem(at: sourceURL, resultingItemURL: nil)
         } catch {
@@ -189,6 +189,9 @@ private func trashOriginalAndClose() {
             phase = .error
             return
         }
+        // Keep playlist memberships pointing at the new MP3 so converting a
+        // WAV/M4A track does not silently drop it from every playlist.
+        library.updatePlaylistURL(from: sourceURL, to: targetURL)
         finishAndDismiss()
     }
 
