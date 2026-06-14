@@ -143,6 +143,15 @@ final class Library: ObservableObject {
         currentPlaylist = playlist
     }
 
+    func reloadCurrent() {
+        switch source {
+        case .folder:
+            if let folder = currentFolder { openFolder(folder) }
+        case .playlist:
+            if let p = currentPlaylist { openPlaylist(p) }
+        }
+    }
+
     func openPlaylist(_ playlist: Playlist) {
         currentPlaylist = playlist
         source = .playlist

@@ -64,15 +64,10 @@ struct ConvertSheet: View {
         .onChange(of: phase) { _, new in
             if new == .done { quality.requestVerdict(targetURL) }
         }
-        .task { refreshFolder() }
+        .task { library.reloadCurrent() }
         .sheet(isPresented: $showSpectrum) {
             SpectrumSheet(trackURL: targetURL)
         }
-    }
-
-    private func refreshFolder() {
-        guard let folder = library.currentFolder else { return }
-        library.openFolder(folder)
     }
 
     @ViewBuilder
@@ -155,7 +150,7 @@ struct ConvertSheet: View {
     // MARK: - Actions
 
     private func startConvert() {
-        refreshFolder()
+        library.reloadCurrent()
         guard FileManager.default.fileExists(atPath: sourceURL.path) else {
             errorMessage = "Source file is no longer at \(sourceURL.lastPathComponent). Refresh and try again."
             phase = .error

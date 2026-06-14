@@ -8,8 +8,6 @@ struct AnalyzeSheet: View {
 
     @State private var lastRefreshLogCount = 0
 
-    private static let accent = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
-
     private struct Counts {
         var analysed = 0, skipped = 0, errors = 0, renamed = 0
         var measured = 0, applied = 0, planned = 0
@@ -65,7 +63,7 @@ struct AnalyzeSheet: View {
         HStack(spacing: 10) {
             Image(systemName: analyzer.running ? headerIcon : "checkmark.circle.fill")
                 .font(.title2)
-                .foregroundStyle(analyzer.running ? Self.accent : .green)
+                .foregroundStyle(analyzer.running ? Theme.accent : .green)
                 .symbolEffect(.pulse, isActive: analyzer.running)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -104,15 +102,15 @@ struct AnalyzeSheet: View {
             switch analyzer.mode {
             case .normalize:
                 chip("Measured", count: c.measured, color: .gray)
-                chip("Planned", count: c.planned, color: Self.accent)
+                chip("Planned", count: c.planned, color: Theme.accent)
                 chip("Applied", count: c.applied, color: .green)
                 chip("Errors", count: c.errors, color: .red)
             case .reset, .syncFilename:
-                chip("Renamed", count: c.renamed, color: Self.accent)
+                chip("Renamed", count: c.renamed, color: Theme.accent)
                 chip("Skipped", count: c.skipped, color: .gray)
                 chip("Errors", count: c.errors, color: .red)
             default:
-                chip("Analysed", count: c.analysed, color: Self.accent)
+                chip("Analysed", count: c.analysed, color: Theme.accent)
                 chip("Skipped", count: c.skipped, color: .gray)
                 chip("Renamed", count: c.renamed, color: .blue)
                 chip("Errors", count: c.errors, color: .red)
@@ -180,7 +178,7 @@ struct AnalyzeSheet: View {
     }
 
     private func color(of line: String) -> Color {
-        if line.hasPrefix("RESULT:") { return Self.accent }
+        if line.hasPrefix("RESULT:") { return Theme.accent }
         if line.hasPrefix("RENAMED:") { return .blue }
         if line.hasPrefix("SKIP:") { return .gray }
         if line.hasPrefix("ERROR:") { return .red }
@@ -188,7 +186,7 @@ struct AnalyzeSheet: View {
         if line.hasPrefix("TOTAL:") || line.hasPrefix("DONE") { return .green }
         if line.hasPrefix("ARTWORK_SET:") || line.hasPrefix("TITLE_SET:") || line.hasPrefix("TAG_SET:") { return .cyan }
         if line.hasPrefix("MEASURE:") { return .gray }
-        if line.hasPrefix("PLAN:") { return Self.accent }
+        if line.hasPrefix("PLAN:") { return Theme.accent }
         if line.hasPrefix("APPLIED:") { return .green }
         if line.hasPrefix("TARGET:") { return .orange }
         return .secondary

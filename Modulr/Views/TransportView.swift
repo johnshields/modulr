@@ -6,8 +6,6 @@ struct TransportView: View {
     @EnvironmentObject var analyzer: Analyzer
     @Binding var showAnalyze: Bool
 
-    private static let accent = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
-
     private var currentTaggable: URL? {
         guard let u = player.currentURL, TagIO.supportsTags(u) else { return nil }
         return u
@@ -32,7 +30,7 @@ struct TransportView: View {
         }
         .buttonStyle(.borderless)
         .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(on ? Self.accent.opacity(0.85) : Color.white.opacity(0.08))
+        .background(on ? Theme.accent.opacity(0.85) : Color.white.opacity(0.08))
         .cornerRadius(6)
         .help(label)
     }
@@ -141,10 +139,10 @@ struct TransportView: View {
             .menuIndicator(.visible)
             .fixedSize()
             .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(Self.accent.opacity(0.25))
+            .background(Theme.accent.opacity(0.25))
             .overlay(
                 RoundedRectangle(cornerRadius: 6)
-                    .stroke(Self.accent.opacity(0.5), lineWidth: 1)
+                    .stroke(Theme.accent.opacity(0.5), lineWidth: 1)
             )
             .cornerRadius(6)
             .help("Analyse")
@@ -220,7 +218,7 @@ struct TransportView: View {
             }
         }
         .foregroundStyle(.white)
-        .tint(Self.accent)
+        .tint(Theme.accent)
         .buttonStyle(.borderless)
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(Color.black.opacity(0.85))

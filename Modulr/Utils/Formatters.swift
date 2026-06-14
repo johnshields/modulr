@@ -25,4 +25,12 @@ enum Formatters {
     static func hertz(_ hz: Double) -> String {
         hz >= 1_000 ? "\(Int(hz / 1_000)) kHz" : "\(Int(hz)) Hz"
     }
+
+    /// "1h 30m 27s" total duration. Hours segment dropped when under one hour.
+    static func hms(_ seconds: TimeInterval) -> String {
+        guard seconds.isFinite, seconds >= 0 else { return "0m 0s" }
+        let total = Int(seconds.rounded())
+        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+        return h > 0 ? "\(h)h \(m)m \(s)s" : "\(m)m \(s)s"
+    }
 }

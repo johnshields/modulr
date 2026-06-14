@@ -59,12 +59,7 @@ struct LoudnessSheet: View {
         .overlay(alignment: .topTrailing) {
             MacCloseButton(action: closeFromX)
         }
-        .task { refreshFolder() }
-    }
-
-    private func refreshFolder() {
-        guard let folder = library.currentFolder else { return }
-        library.openFolder(folder)
+        .task { library.reloadCurrent() }
     }
 
     @ViewBuilder
@@ -131,7 +126,7 @@ struct LoudnessSheet: View {
     // MARK: - Actions
 
     private func startBoost() {
-        refreshFolder()
+        library.reloadCurrent()
         guard FileManager.default.fileExists(atPath: sourceURL.path) else {
             errorMessage = "Source file is no longer at \(sourceURL.lastPathComponent). Refresh and try again."
             phase = .error

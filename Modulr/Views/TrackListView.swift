@@ -27,9 +27,6 @@ struct TrackListView: View {
     @State private var applyProgress: (done: Int, total: Int) = (0, 0)
     @State private var artCache: [URL: NSImage] = [:]
 
-    private static let accent = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
-    private static let compatTint = Color(red: 0x7d/255, green: 0x77/255, blue: 0xfb/255)
-
     private var sorted: [Track] { library.tracks.sorted(using: sortOrder) }
 
     private var visible: [Track] {
@@ -72,7 +69,7 @@ struct TrackListView: View {
             header
             if editingOrder { editBody } else { tableBody }
         }
-        .tint(Self.accent)
+        .tint(Theme.accent)
         .sheet(item: $tagTrack) { t in TagEditSheet(track: t).environmentObject(library) }
         .sheet(item: $spectrumTrack) { t in SpectrumSheet(trackURL: t.url) }
         .sheet(item: $convertTrack) { t in
@@ -99,7 +96,7 @@ struct TrackListView: View {
         .sheet(item: $deleteTrack) { t in
             DeleteSheet(
                 track: t,
-                accent: Self.accent,
+                accent: Theme.accent,
                 onTrash: {
                     try? library.deleteTrack(t.id)
                     deleteTrack = nil
@@ -110,11 +107,7 @@ struct TrackListView: View {
     }
 
     private var totalDurationDisplay: String {
-        let total = Int(library.tracks.reduce(0) { $0 + $1.duration }.rounded())
-        let h = total / 3600
-        let m = (total % 3600) / 60
-        let s = total % 60
-        return h > 0 ? "\(h)h \(m)m \(s)s" : "\(m)m \(s)s"
+        Formatters.hms(library.tracks.reduce(0) { $0 + $1.duration })
     }
 
     private var header: some View {
@@ -251,7 +244,7 @@ struct TrackListView: View {
                 let musical = t.key.map { KeyNormalizer.toMusical($0) } ?? ""
                 let isCompat = !musical.isEmpty && compatKeys.contains(musical)
                 Text(t.keyDisplay)
-                    .foregroundStyle(isCompat ? Self.compatTint : .primary)
+                    .foregroundStyle(isCompat ? Theme.accent : .primary)
                     .fontWeight(isCompat ? .semibold : .regular)
             }
             .width(min: 50, ideal: 60, max: 80)
@@ -368,7 +361,7 @@ struct TrackListView: View {
         .padding(.horizontal, 10).padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(dragID == t.id ? Self.accent.opacity(0.25) : Color.white.opacity(idx % 2 == 0 ? 0.04 : 0))
+                .fill(dragID == t.id ? Theme.accent.opacity(0.25) : Color.white.opacity(idx % 2 == 0 ? 0.04 : 0))
         )
         .opacity(dragID == t.id ? 0.5 : 1)
         .cursor(dragID == t.id ? .closedHand : .openHand)
