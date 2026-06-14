@@ -65,10 +65,15 @@ final class Library: ObservableObject {
 
     func addToPlaylist(_ playlistID: UUID, trackURLs: [URL]) {
         guard let idx = playlists.firstIndex(where: { $0.id == playlistID }) else { return }
-        for url in trackURLs where !playlists[idx].trackURLs.contains(url) {
-            playlists[idx].trackURLs.append(url)
-        }
+        let existing = Set(playlists[idx].trackURLs)
+        let added = trackURLs.filter { !existing.contains($0) }
+        playlists[idx].trackURLs.append(contentsOf: added)
         playlistStore.save(playlists[idx])
+        let total = playlists[idx].trackURLs.count
+        let startOffset = total - added.count
+        for (i, url) in added.enumerated() where TagService.supportsTags(url) {
+            TagService.setTrackNumber(url, index: startOffset + i + 1, total: total)
+        }
         if currentPlaylist?.id == playlistID { openPlaylist(playlists[idx]) }
     }
 
