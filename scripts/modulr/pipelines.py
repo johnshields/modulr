@@ -55,13 +55,26 @@ class AnalysePipeline(_BasePipeline):
         if do_rename:
             self._rename_to_dj(path, filename, musical, bpm, keep_numbers)
 
-    def run_folder(self, folder, do_rename, keep_numbers=False):
-        self._iterate_folder(
-            folder, self.run_one,
-            do_rename=do_rename,
-            allow_skip=True,
-            keep_numbers=keep_numbers,
-        )
+    def run_folder(self, folder, do_rename, keep_numbers=False,
+                   only_untagged=False):
+        """Iterate over folder. When `only_untagged` is set, pre-filter the
+        list so progress reflects the un-analysed subset only, instead of
+        marching past every track and printing SKIP for the tagged ones.
+        """
+        import os
+        from .metadata.files import list_audio
+        files = list_audio(folder, exts=(".mp3", ".m4a", ".wav", ".mp4", ".aac"))
+        if only_untagged:
+            files = [p for p in files if not self.tag_io.has_pair(p)]
+        log(f"TOTAL: {len(files)}")
+        for i, path in enumerate(files, 1):
+            self.run_one(
+                path, do_rename,
+                idx=i, total=len(files),
+                allow_skip=not only_untagged,
+                keep_numbers=keep_numbers,
+            )
+        log_done()
 
     def _resolve(self, path, filename, allow_skip):
         """Return (musical, bpm) — either from tags (skip) or fresh detection."""

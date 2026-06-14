@@ -32,6 +32,8 @@ def _build_parser():
     p.add_argument("--folder")
     p.add_argument("--file")
     p.add_argument("--rename", action="store_true")
+    p.add_argument("--only-untagged", action="store_true",
+                   help="With --folder, skip tracks that already have BPM and key")
     p.add_argument("--reset", action="store_true",
                    help="Strip _KEY_BPM and NNN_ from filenames; do not analyse")
     p.add_argument("--keep-numbers", action="store_true",
@@ -78,7 +80,9 @@ def _dispatch_analyse(args):
     if not args.folder:
         log_error("need --folder or --file")
         sys.exit(1)
-    pipeline.run_folder(args.folder, args.rename, keep_numbers=args.keep_numbers)
+    pipeline.run_folder(args.folder, args.rename,
+                        keep_numbers=args.keep_numbers,
+                        only_untagged=args.only_untagged)
 
 
 def _dispatch_reset(args):

@@ -68,11 +68,13 @@ final class Analyzer: ObservableObject {
         run(args: args, completion: completion)
     }
 
-    func analyzeFolder(_ url: URL, rename: Bool = false, completion: @escaping () -> Void) {
+    func analyzeFolder(_ url: URL, rename: Bool = false, onlyUntagged: Bool = false,
+                       completion: @escaping () -> Void) {
         mode = .analyse
         var args = ["--folder", url.path]
         if rename { args.append("--rename") }
         if rename && keepOrder { args.append("--keep-numbers") }
+        if onlyUntagged { args.append("--only-untagged") }
         run(args: args, completion: completion)
     }
 

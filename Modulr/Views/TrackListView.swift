@@ -166,7 +166,9 @@ struct TrackListView: View {
                 if unanalysedOnly && unanalysedCount > 0 {
                     Button {
                         guard let cur = library.currentFolder else { return }
-                        analyzer.analyzeFolder(cur, rename: analyzer.renameAfter) {}
+                        analyzer.analyzeFolder(cur,
+                                               rename: analyzer.renameAfter,
+                                               onlyUntagged: true) {}
                         showAnalyze = true
                     } label: {
                         Label("Analyse \(unanalysedCount)",
