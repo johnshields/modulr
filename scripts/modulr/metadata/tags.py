@@ -49,6 +49,8 @@ class _Backend(ABC):
     @abstractmethod
     def read_artist(self, path) -> str | None: ...
     @abstractmethod
+    def read_title(self, path) -> str | None: ...
+    @abstractmethod
     def write_pair(self, path, bpm, musical, title=None, artist=None): ...
     @abstractmethod
     def set_title(self, path, new_title): ...
@@ -124,6 +126,19 @@ class _ID3Backend(_Backend):
         # ID3 v2.3 stores multi-artist as "Artist1/Artist2" — render with comma
         # separation so filenames + display read naturally.
         return raw.replace("/", ", ") if raw else None
+
+    def read_title(self, path):
+        audio = self._open(path)
+        if audio is None or audio.tags is None:
+            return None
+        tag = audio.tags.get("TIT2")
+        if not tag or not tag.text:
+            return None
+        try:
+            raw = tag.text[0] or None
+        except Exception:
+            return None
+        return raw or None
 
     def write_pair(self, path, bpm, musical, title=None, artist=None):
         audio = self._open(path)
@@ -267,6 +282,14 @@ class _MP4Backend(_Backend):
         audio = self._open(path)
         if audio is None: return None
         v = audio.get(_MP4_ATOMS["artist"])
+        if not v: return None
+        try: return str(v[0]).strip() or None
+        except Exception: return None
+
+    def read_title(self, path):
+        audio = self._open(path)
+        if audio is None: return None
+        v = audio.get(_MP4_ATOMS["title"])
         if not v: return None
         try: return str(v[0]).strip() or None
         except Exception: return None
@@ -427,6 +450,9 @@ class TagIO:
     def read_artist(self, path):
         b = self._backend(path); return b.read_artist(path) if b else None
 
+    def read_title(self, path):
+        b = self._backend(path); return b.read_title(path) if b else None
+
     # Writers
 
     def write_pair(self, path, bpm, musical, title=None, artist=None):
@@ -556,18 +582,22 @@ class TagIO:
 
     def build_clean_stem(self, path, filename):
         """Canonical title-only stem.
-        Strips trailing _KEY_BPM, leading NNN_, and any tokens matching the artist tag.
-        Preserves extension awareness (uses splitext rather than slicing).
+        Prefers the TITLE tag when present, falls back to filename derivation.
+        Strips trailing _KEY_BPM, leading NNN_, and any artist tokens.
         """
-        stem, _ext = os.path.splitext(filename)
-        parts = stem.split("_")
-        while (len(parts) >= 3
-               and parts[-1].isdigit()
-               and re.match(r"^[A-Za-z0-9#]{1,6}$", parts[-2])):
-            parts = parts[:-2]
-        if len(parts) >= 2 and re.match(r"^\d{2,3}$", parts[0]):
-            parts = parts[1:]
-        title_part = slug(parts[0]) if parts else ""
+        title_tag = self.read_title(path)
+        if title_tag:
+            title_part = slug(title_tag)
+        else:
+            stem, _ext = os.path.splitext(filename)
+            parts = stem.split("_")
+            while (len(parts) >= 3
+                   and parts[-1].isdigit()
+                   and re.match(r"^[A-Za-z0-9#]{1,6}$", parts[-2])):
+                parts = parts[:-2]
+            if len(parts) >= 2 and re.match(r"^\d{2,3}$", parts[0]):
+                parts = parts[1:]
+            title_part = slug(parts[0]) if parts else ""
 
         artist = self.read_artist(path)
         if not artist:
