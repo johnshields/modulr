@@ -63,6 +63,13 @@ final class Library: ObservableObject {
         }
     }
 
+    func removeFromPlaylist(_ playlistID: UUID, trackURL: URL) {
+        guard let idx = playlists.firstIndex(where: { $0.id == playlistID }) else { return }
+        playlists[idx].trackURLs.removeAll { $0 == trackURL }
+        playlistStore.save(playlists[idx])
+        if currentPlaylist?.id == playlistID { openPlaylist(playlists[idx]) }
+    }
+
     func addToPlaylist(_ playlistID: UUID, trackURLs: [URL]) {
         guard let idx = playlists.firstIndex(where: { $0.id == playlistID }) else { return }
         let existing = Set(playlists[idx].trackURLs)
@@ -143,6 +150,55 @@ final class Library: ObservableObject {
         currentPlaylist = playlist
     }
 
+    struct ConsolidateResult {
+        var moved = 0
+        var alreadyThere = 0
+        var renamed = 0
+        var failed = 0
+    }
+
+    func consolidatePlaylist(id: UUID, to destination: URL) -> ConsolidateResult {
+        guard let idx = playlists.firstIndex(where: { $0.id == id }) else {
+            return ConsolidateResult()
+        }
+        var result = ConsolidateResult()
+        let fm = FileManager.default
+        let destPath = destination.standardizedFileURL.resolvingSymlinksInPath().path
+        let snapshot = playlists[idx].trackURLs
+        for url in snapshot {
+            let parentPath = url.deletingLastPathComponent()
+                .standardizedFileURL.resolvingSymlinksInPath().path
+            if parentPath == destPath {
+                result.alreadyThere += 1
+                continue
+            }
+            var target = destination.appendingPathComponent(url.lastPathComponent)
+            var collision = 1
+            while fm.fileExists(atPath: target.path) {
+                let stem = url.deletingPathExtension().lastPathComponent
+                let ext = url.pathExtension
+                target = destination
+                    .appendingPathComponent("\(stem) (\(collision))")
+                    .appendingPathExtension(ext)
+                collision += 1
+            }
+            let wasRenamed = target.lastPathComponent != url.lastPathComponent
+            do {
+                try fm.moveItem(at: url, to: target)
+                updatePlaylistURL(from: url, to: target)
+                if wasRenamed { result.renamed += 1 }
+                result.moved += 1
+            } catch {
+                result.failed += 1
+            }
+        }
+        if currentPlaylist?.id == id,
+           let refreshed = playlists.first(where: { $0.id == id }) {
+            openPlaylist(refreshed)
+        }
+        return result
+    }
+
     func reloadCurrent() {
         switch source {
         case .folder:
@@ -159,8 +215,12 @@ final class Library: ObservableObject {
         NotificationCenter.default.post(name: .libraryFolderReloaded, object: nil)
         Task { [weak self] in
             let scanned = await LibraryScanner.scanURLs(playlist.trackURLs)
+            let positioned = playlist.trackURLs.enumerated().compactMap { (idx, url) -> Track? in
+                guard let t = scanned.first(where: { $0.url == url }) else { return nil }
+                return t.with(trackNumber: .some(idx + 1))
+            }
             await MainActor.run { [weak self] in
-                self?.tracks = scanned
+                self?.tracks = positioned
             }
         }
     }

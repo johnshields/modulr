@@ -20,6 +20,7 @@ struct TrackListView: View {
     @State private var deleteTrack: Track?
     @State private var search = ""
     @State private var unanalysedOnly = false
+    @State private var moveSummary: String?
 
     @State private var editItems: [Track] = []
     @State private var dragID: UUID?
@@ -104,6 +105,34 @@ struct TrackListView: View {
                 onCancel: { deleteTrack = nil }
             )
         }
+        .alert("Move Complete",
+               isPresented: Binding(
+                get: { moveSummary != nil },
+                set: { if !$0 { moveSummary = nil } }
+               )) {
+            Button("OK", role: .cancel) { moveSummary = nil }
+        } message: {
+            Text(moveSummary ?? "")
+        }
+    }
+
+    private func moveAllToFolder() {
+        guard let playlistID = library.currentPlaylist?.id else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Move Here"
+        panel.message = "Choose a folder to move all playlist tracks into"
+        guard panel.runModal() == .OK, let dest = panel.url else { return }
+        let r = library.consolidatePlaylist(id: playlistID, to: dest)
+        var parts: [String] = []
+        if r.moved > 0 { parts.append("Moved \(r.moved)") }
+        if r.alreadyThere > 0 { parts.append("\(r.alreadyThere) already there") }
+        if r.renamed > 0 { parts.append("\(r.renamed) renamed to avoid conflict") }
+        if r.failed > 0 { parts.append("\(r.failed) failed") }
+        moveSummary = parts.isEmpty ? "Nothing to move." : parts.joined(separator: " · ")
     }
 
     private var totalDurationDisplay: String {
@@ -167,6 +196,15 @@ struct TrackListView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .help("Drag to reorder. Apply writes track numbers.")
+
+                Button {
+                    moveAllToFolder()
+                } label: {
+                    Label("Move All…", systemImage: "folder.badge.gearshape")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Move every track in this playlist into one folder")
             }
 
             if !editingOrder && library.source == .folder {
@@ -404,6 +442,13 @@ struct TrackListView: View {
             }
         } label: {
             Label("Add to Playlist", systemImage: "text.badge.plus")
+        }
+        if let pid = library.currentPlaylist?.id, library.source == .playlist {
+            Button(role: .destructive) {
+                library.removeFromPlaylist(pid, trackURL: t.url)
+            } label: {
+                Label("Remove from Playlist", systemImage: "text.badge.minus")
+            }
         }
         Divider()
         Button {

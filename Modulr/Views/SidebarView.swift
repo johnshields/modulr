@@ -20,6 +20,8 @@ struct SidebarView: View {
     @State private var showNewPlaylistAlert = false
     @State private var renamingPlaylist: Playlist?
     @State private var renamingName = ""
+    @State private var consolidating = false
+    @State private var consolidateSummary: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -73,6 +75,15 @@ struct SidebarView: View {
                 .disabled(newPlaylistName.trimmingCharacters(in: .whitespaces).isEmpty)
                 Button("Cancel", role: .cancel) {}
             }
+            .alert("Move Complete",
+                   isPresented: Binding(
+                    get: { consolidateSummary != nil },
+                    set: { if !$0 { consolidateSummary = nil } }
+                   )) {
+                Button("OK", role: .cancel) { consolidateSummary = nil }
+            } message: {
+                Text(consolidateSummary ?? "")
+            }
             .alert("Rename Playlist",
                    isPresented: Binding(
                     get: { renamingPlaylist != nil },
@@ -100,12 +111,21 @@ struct SidebarView: View {
 
     private func currentFolderRow(_ cur: URL) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: "folder.fill")
-                .foregroundStyle(Theme.accent)
-            Text(cur.lastPathComponent)
-                .fontWeight(.semibold)
-                .help(cur.path)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                library.openFolder(cur)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "folder.fill")
+                        .foregroundStyle(Theme.accent)
+                    Text(cur.lastPathComponent)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                }
+            }
+            .buttonStyle(.plain)
+            .help(cur.path)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             Button {
                 library.toggleFavouriteFolder(cur)
             } label: {
@@ -138,9 +158,35 @@ struct SidebarView: View {
                 renamingPlaylist = playlist
                 renamingName = playlist.name
             }
+            Button("Move tracks to folder…") {
+                consolidatePlaylist(id: playlist.id)
+            }
+            .disabled(playlist.trackURLs.isEmpty || consolidating)
             Button("Delete", role: .destructive) {
                 library.deletePlaylist(id: playlist.id)
             }
+        }
+    }
+
+    private func consolidatePlaylist(id: UUID) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Move Here"
+        panel.message = "Choose a folder to move all playlist tracks into"
+        guard panel.runModal() == .OK, let dest = panel.url else { return }
+        consolidating = true
+        DispatchQueue.main.async {
+            let r = library.consolidatePlaylist(id: id, to: dest)
+            consolidating = false
+            var parts: [String] = []
+            if r.moved > 0 { parts.append("Moved \(r.moved)") }
+            if r.alreadyThere > 0 { parts.append("\(r.alreadyThere) already there") }
+            if r.renamed > 0 { parts.append("\(r.renamed) renamed to avoid conflict") }
+            if r.failed > 0 { parts.append("\(r.failed) failed") }
+            consolidateSummary = parts.isEmpty ? "Nothing to move." : parts.joined(separator: " · ")
         }
     }
 
