@@ -157,14 +157,16 @@ final class Library: ObservableObject {
         var failed = 0
     }
 
-    func consolidatePlaylist(id: UUID, to destination: URL) -> ConsolidateResult {
+    func consolidatePlaylist(id: UUID, to destination: URL, urls: [URL]? = nil) -> ConsolidateResult {
         guard let idx = playlists.firstIndex(where: { $0.id == id }) else {
             return ConsolidateResult()
         }
         var result = ConsolidateResult()
         let fm = FileManager.default
         let destPath = destination.standardizedFileURL.resolvingSymlinksInPath().path
-        let snapshot = playlists[idx].trackURLs
+        // Restrict to caller-selected URLs when provided, else the whole playlist.
+        let members = playlists[idx].trackURLs
+        let snapshot = urls.map { picked in members.filter(picked.contains) } ?? members
         for url in snapshot {
             let parentPath = url.deletingLastPathComponent()
                 .standardizedFileURL.resolvingSymlinksInPath().path
