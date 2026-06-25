@@ -110,10 +110,11 @@ struct WaveformView: View {
                                 let progressX = size.width * CGFloat(progress)
 
                                 let dim = Color(white: 0.35)
+                                // Deep-to-bright amber ramp along the played region.
                                 func gradColor(_ t: Double) -> Color {
-                                    let r = (1 - t) * 0x4f/255.0 + t * 0xa8/255.0
-                                    let g = (1 - t) * 0x9e/255.0 + t * 0x55/255.0
-                                    let b = (1 - t) * 0xff/255.0 + t * 0xf7/255.0
+                                    let r = (1 - t) * 0xc2/255.0 + t * 0xff/255.0
+                                    let g = (1 - t) * 0x60/255.0 + t * 0xb8/255.0
+                                    let b = (1 - t) * 0x0f/255.0 + t * 0x4d/255.0
                                     return Color(red: r, green: g, blue: b)
                                 }
 

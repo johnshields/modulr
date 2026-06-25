@@ -13,6 +13,20 @@ if [ ! -f "$ICON_SRC" ] || [ "Modulr/Resources/modulr.svg" -nt "$ICON_SRC" ]; th
 fi
 cp "$ICON_SRC" "$APP/Contents/Resources/Modulr.icns"
 
+# Compile the asset catalog so NSAccentColorName resolves the brand accent,
+# which AppKit-backed table selection reads (SwiftUI .tint cannot reach it).
+# actool ships only with full Xcode, so resolve its developer dir explicitly
+# (the default xcrun points at CommandLineTools, which lacks actool).
+ASSETS="Modulr/Resources/Assets.xcassets"
+XCODE_DEV="$(xcode-select -p 2>/dev/null)"
+[ -x "$XCODE_DEV/usr/bin/actool" ] || XCODE_DEV="/Applications/Xcode.app/Contents/Developer"
+if [ -d "$ASSETS" ] && [ -x "$XCODE_DEV/usr/bin/actool" ]; then
+  DEVELOPER_DIR="$XCODE_DEV" xcrun actool "$ASSETS" \
+    --compile "$APP/Contents/Resources" \
+    --platform macosx --minimum-deployment-target 14.0 \
+    --output-partial-info-plist /tmp/modulr-actool.plist >/dev/null 2>&1 || true
+fi
+
 # Bundle Python toolkit (analyze.py + modulr/ package) for runtime discovery.
 mkdir -p "$APP/Contents/Resources/scripts"
 cp scripts/analyze.py "$APP/Contents/Resources/scripts/analyze.py"
@@ -25,6 +39,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundleName</key><string>Modulr</string>
   <key>CFBundleExecutable</key><string>Modulr</string>
   <key>CFBundleIconFile</key><string>Modulr</string>
+  <key>NSAccentColorName</key><string>AccentColor</string>
   <key>CFBundleIdentifier</key><string>com.fromlost.modulr</string>
   <key>CFBundleVersion</key><string>0.1</string>
   <key>CFBundleShortVersionString</key><string>0.1</string>
