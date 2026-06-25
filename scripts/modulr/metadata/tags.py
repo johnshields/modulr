@@ -580,14 +580,34 @@ class TagIO:
 
     # Filename derivation that needs tag access
 
-    @staticmethod
-    def _after_artist_dash(text):
+    _ARTIST_DASH = re.compile(r"\s+[-–—]\s+")
+
+    @classmethod
+    def _after_artist_dash(cls, text):
         """Return the title side of an "Artist - Title" string.
         Splits on the first spaced hyphen, en dash or em dash; leaves text
         untouched when no such separator is present.
         """
-        halves = re.split(r"\s+[-–—]\s+", text, maxsplit=1)
+        halves = cls._ARTIST_DASH.split(text, maxsplit=1)
         return halves[1] if len(halves) == 2 else text
+
+    @classmethod
+    def _before_artist_dash(cls, text):
+        """Return the artist side of an "Artist - Title" string, else None."""
+        halves = cls._ARTIST_DASH.split(text, maxsplit=1)
+        return halves[0].strip() or None if len(halves) == 2 else None
+
+    def backfill_artist(self, path):
+        """Populate the ARTIST tag from an "Artist - Title" title or filename,
+        only when no artist is already tagged. No-op for backends without tag
+        support (e.g. WAV).
+        """
+        if self._backend(path) is None or self.read_artist(path):
+            return
+        source = self.read_title(path) or os.path.splitext(os.path.basename(path))[0]
+        artist = self._before_artist_dash(source)
+        if artist:
+            self.set_tag(path, "artist", artist)
 
     def build_clean_stem(self, path, filename):
         """Canonical title-only stem.

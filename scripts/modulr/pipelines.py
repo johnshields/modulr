@@ -82,6 +82,9 @@ class AnalysePipeline(_BasePipeline):
         # the ID3 v2.3 "/" convention. Idempotent: only writes when "/" is
         # actually present in the existing TPE1 frame.
         self.tag_io.rewrite_normalised_artist(path)
+        # Lift an "Artist - Title" prefix into the ARTIST tag when it is blank,
+        # so the artist survives the rename that strips it from the filename.
+        self.tag_io.backfill_artist(path)
         if allow_skip and self.tag_io.has_pair(path):
             existing_key, existing_bpm = self.tag_io.read_pair(path)
             if existing_key and existing_bpm:
