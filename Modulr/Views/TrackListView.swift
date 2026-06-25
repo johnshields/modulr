@@ -72,8 +72,11 @@ struct TrackListView: View {
         }
         .tint(Theme.accent)
         .onChange(of: library.source) { _, new in
-            // Folder view defaults to newest-added first; playlist keeps its order.
-            if new == .folder { sortOrder = [.init(\.dateAddedSort, order: .reverse)] }
+            // Folder view defaults to newest-added first; playlist to its # order.
+            switch new {
+            case .folder: sortOrder = [.init(\.dateAddedSort, order: .reverse)]
+            case .playlist: sortOrder = [.init(\.trackNumberSort)]
+            }
         }
         .sheet(item: $tagTrack) { t in TagEditSheet(track: t).environmentObject(library) }
         .sheet(item: $spectrumTrack) { t in SpectrumSheet(trackURL: t.url) }

@@ -21,7 +21,7 @@ from mutagen.id3 import (
 from ..logger import log, log_error
 from ..theory.constants import FRAME_MAP
 from ..theory.keys import normalise_musical
-from .files import NNN_PREFIX, preserve_nnn_prefix, slug
+from .files import preserve_nnn_prefix, slug
 
 
 # Logical frame name -> MP4 atom key. Custom key uses iTunes-style freeform atom.
@@ -579,23 +579,6 @@ class TagIO:
         return old_path != new_path
 
     # Filename derivation that needs tag access
-
-    _ARTIST_DASH = re.compile(r"\s+[-–—]\s+")
-    _KEY_BPM_SUFFIX = re.compile(r"_[A-Za-z#]{1,6}_\d{2,3}$")
-
-    def backfill_artist(self, path):
-        """Seed the ARTIST tag from an "Artist - Title" filename, only for
-        tracks with no artist tagged yet (typically tagless WAVs). The artist
-        is taken as the first spaced-dash segment, after dropping any NNN_
-        prefix and _KEY_BPM suffix. No-op for backends without tag support.
-        """
-        if self._backend(path) is None or self.read_artist(path):
-            return
-        stem = os.path.splitext(os.path.basename(path))[0]
-        stem = self._KEY_BPM_SUFFIX.sub("", NNN_PREFIX.sub("", stem))
-        parts = self._ARTIST_DASH.split(stem, maxsplit=1)
-        if len(parts) == 2 and parts[0].strip():
-            self.set_tag(path, "artist", parts[0].strip())
 
     def build_clean_stem(self, path, filename):
         """Canonical title-only stem.
