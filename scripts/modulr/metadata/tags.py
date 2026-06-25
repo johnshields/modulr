@@ -580,6 +580,15 @@ class TagIO:
 
     # Filename derivation that needs tag access
 
+    @staticmethod
+    def _after_artist_dash(text):
+        """Return the title side of an "Artist - Title" string.
+        Splits on the first spaced hyphen, en dash or em dash; leaves text
+        untouched when no such separator is present.
+        """
+        halves = re.split(r"\s+[-–—]\s+", text, maxsplit=1)
+        return halves[1] if len(halves) == 2 else text
+
     def build_clean_stem(self, path, filename):
         """Canonical title-only stem.
         Prefers the TITLE tag when present, falls back to filename derivation.
@@ -587,13 +596,11 @@ class TagIO:
         """
         title_tag = self.read_title(path)
         if title_tag:
-            title_part = slug(title_tag)
+            # Drop "Artist - Title" prefix even when it is baked into the tag.
+            title_part = slug(self._after_artist_dash(title_tag))
         else:
             stem, _ext = os.path.splitext(filename)
-            # Drop "Artist - Title" prefix (hyphen, en dash or em dash).
-            halves = re.split(r"\s+[-–—]\s+", stem, maxsplit=1)
-            if len(halves) == 2:
-                stem = halves[1]
+            stem = self._after_artist_dash(stem)
             parts = stem.split("_")
             while (len(parts) >= 3
                    and parts[-1].isdigit()

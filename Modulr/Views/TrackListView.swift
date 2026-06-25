@@ -11,7 +11,7 @@ struct TrackListView: View {
     let onPlay: (URL) -> Void
 
     @State private var selection: Track.ID?
-    @State private var sortOrder: [KeyPathComparator<Track>] = [.init(\.title)]
+    @State private var sortOrder: [KeyPathComparator<Track>] = [.init(\.dateAddedSort, order: .reverse)]
     @State private var tagTrack: Track?
     @State private var spectrumTrack: Track?
     @State private var convertTrack: Track?
@@ -71,6 +71,10 @@ struct TrackListView: View {
             if editingOrder { editBody } else { tableBody }
         }
         .tint(Theme.accent)
+        .onChange(of: library.source) { _, new in
+            // Folder view defaults to newest-added first; playlist keeps its order.
+            if new == .folder { sortOrder = [.init(\.dateAddedSort, order: .reverse)] }
+        }
         .sheet(item: $tagTrack) { t in TagEditSheet(track: t).environmentObject(library) }
         .sheet(item: $spectrumTrack) { t in SpectrumSheet(trackURL: t.url) }
         .sheet(item: $convertTrack) { t in
