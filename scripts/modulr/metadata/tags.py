@@ -581,46 +581,38 @@ class TagIO:
     # Filename derivation that needs tag access
 
     _ARTIST_DASH = re.compile(r"\s+[-–—]\s+")
-
-    @classmethod
-    def _after_artist_dash(cls, text):
-        """Return the title side of an "Artist - Title" string.
-        Splits on the first spaced hyphen, en dash or em dash; leaves text
-        untouched when no such separator is present.
-        """
-        halves = cls._ARTIST_DASH.split(text, maxsplit=1)
-        return halves[1] if len(halves) == 2 else text
-
-    @classmethod
-    def _before_artist_dash(cls, text):
-        """Return the artist side of an "Artist - Title" string, else None."""
-        halves = cls._ARTIST_DASH.split(text, maxsplit=1)
-        return halves[0].strip() or None if len(halves) == 2 else None
+    _NNN_PREFIX = re.compile(r"^\d{2,4}_")
+    _KEY_BPM_SUFFIX = re.compile(r"_[A-Za-z#]{1,6}_\d{2,3}$")
 
     def backfill_artist(self, path):
-        """Populate the ARTIST tag from an "Artist - Title" title or filename,
-        only when no artist is already tagged. No-op for backends without tag
-        support (e.g. WAV).
+        """Seed the ARTIST tag from an "Artist - Title" filename, only for
+        tracks with no artist tagged yet (typically tagless WAVs). The artist
+        is taken as the first spaced-dash segment, after dropping any NNN_
+        prefix and _KEY_BPM suffix. No-op for backends without tag support.
         """
         if self._backend(path) is None or self.read_artist(path):
             return
-        source = self.read_title(path) or os.path.splitext(os.path.basename(path))[0]
-        artist = self._before_artist_dash(source)
-        if artist:
-            self.set_tag(path, "artist", artist)
+        stem = os.path.splitext(os.path.basename(path))[0]
+        stem = self._KEY_BPM_SUFFIX.sub("", self._NNN_PREFIX.sub("", stem))
+        parts = self._ARTIST_DASH.split(stem, maxsplit=1)
+        if len(parts) == 2 and parts[0].strip():
+            self.set_tag(path, "artist", parts[0].strip())
 
     def build_clean_stem(self, path, filename):
         """Canonical title-only stem.
         Prefers the TITLE tag when present, falls back to filename derivation.
         Strips trailing _KEY_BPM, leading NNN_, and any artist tokens.
+
+        Artist removal is driven by the ARTIST tag rather than dash position,
+        so it works for every layout (Artist - Title, Title - Artist,
+        Title - Remixer - Artist, Artist - Title - Remixer) as long as the
+        artist is tagged. Untagged tracks keep whatever the title holds.
         """
         title_tag = self.read_title(path)
         if title_tag:
-            # Drop "Artist - Title" prefix even when it is baked into the tag.
-            title_part = slug(self._after_artist_dash(title_tag))
+            title_part = slug(title_tag)
         else:
             stem, _ext = os.path.splitext(filename)
-            stem = self._after_artist_dash(stem)
             parts = stem.split("_")
             while (len(parts) >= 3
                    and parts[-1].isdigit()
