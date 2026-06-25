@@ -590,6 +590,10 @@ class TagIO:
             title_part = slug(title_tag)
         else:
             stem, _ext = os.path.splitext(filename)
+            # Drop "Artist - Title" prefix (hyphen, en dash or em dash).
+            halves = re.split(r"\s+[-–—]\s+", stem, maxsplit=1)
+            if len(halves) == 2:
+                stem = halves[1]
             parts = stem.split("_")
             while (len(parts) >= 3
                    and parts[-1].isdigit()
