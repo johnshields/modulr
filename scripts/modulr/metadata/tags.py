@@ -21,7 +21,7 @@ from mutagen.id3 import (
 from ..logger import log, log_error
 from ..theory.constants import FRAME_MAP
 from ..theory.keys import normalise_musical
-from .files import preserve_nnn_prefix, slug
+from .files import NNN_PREFIX, preserve_nnn_prefix, slug
 
 
 # Logical frame name -> MP4 atom key. Custom key uses iTunes-style freeform atom.
@@ -581,7 +581,6 @@ class TagIO:
     # Filename derivation that needs tag access
 
     _ARTIST_DASH = re.compile(r"\s+[-–—]\s+")
-    _NNN_PREFIX = re.compile(r"^\d{2,4}_")
     _KEY_BPM_SUFFIX = re.compile(r"_[A-Za-z#]{1,6}_\d{2,3}$")
 
     def backfill_artist(self, path):
@@ -593,7 +592,7 @@ class TagIO:
         if self._backend(path) is None or self.read_artist(path):
             return
         stem = os.path.splitext(os.path.basename(path))[0]
-        stem = self._KEY_BPM_SUFFIX.sub("", self._NNN_PREFIX.sub("", stem))
+        stem = self._KEY_BPM_SUFFIX.sub("", NNN_PREFIX.sub("", stem))
         parts = self._ARTIST_DASH.split(stem, maxsplit=1)
         if len(parts) == 2 and parts[0].strip():
             self.set_tag(path, "artist", parts[0].strip())
@@ -622,14 +621,20 @@ class TagIO:
                 parts = parts[1:]
             title_part = slug(parts[0]) if parts else ""
 
-        artist = self.read_artist(path)
+        return self._strip_artist_tokens(title_part, self.read_artist(path))
+
+    @staticmethod
+    def _strip_artist_tokens(title_part, artist):
+        """Drop slug tokens that match the artist, regardless of dash position."""
         if not artist:
             return title_part
-        artist_tokens = {t for t in re.split(r"[^a-z0-9]+", slug(artist)) if t}
+        # slug() output is lowercase, hyphen-delimited [a-z0-9], so a plain
+        # hyphen split yields the tokens directly.
+        artist_tokens = {t for t in slug(artist).split("-") if t}
         if not artist_tokens:
             return title_part
-        tokens = re.split(r"[-_]+", title_part)
-        cleaned = "-".join(t for t in tokens if t and t.lower() not in artist_tokens)
+        tokens = title_part.split("-")
+        cleaned = "-".join(t for t in tokens if t and t not in artist_tokens)
         return cleaned or title_part
 
     def derived_dj_name(self, path, key, bpm, keep_numbers=False):

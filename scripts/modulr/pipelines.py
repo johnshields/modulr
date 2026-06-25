@@ -8,12 +8,11 @@ Each pipeline class owns one CLI-facing operation:
   BrightenPipeline       -- ffmpeg exciter + high-shelf for dull / lossy tracks
 """
 import os
-import re
 
 from .analysis.analyser import TrackAnalyser, default_analyser
 from .logger import log, log_done, log_error, log_progress
 from .mastering.ffmpeg import FfmpegRunner
-from .metadata.files import list_audio, preserve_nnn_prefix
+from .metadata.files import NNN_PREFIX, list_audio, preserve_nnn_prefix
 from .metadata.tags import TagIO
 
 _TAG_EXTS = (".mp3", ".m4a", ".wav", ".mp4", ".aac")
@@ -148,14 +147,12 @@ class ResetPipeline(_BasePipeline):
 class StripNumbersPipeline(_BasePipeline):
     """Remove leading NNN_ order prefix from filenames; preserve everything else."""
 
-    NNN_PREFIX = re.compile(r"^\d{2,4}_")
-
     def run_one(self, path, idx=None, total=None):
         filename = os.path.basename(path)
         if idx is not None:
             log_progress(idx, total, filename)
 
-        new_name = self.NNN_PREFIX.sub("", filename, count=1)
+        new_name = NNN_PREFIX.sub("", filename, count=1)
         if new_name == filename:
             log(f"OK: {filename} (no number prefix)")
             return

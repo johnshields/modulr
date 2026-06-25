@@ -34,9 +34,13 @@ def slug(s):
     return re.sub(r"^\d{2,3}-", "", s)
 
 
+# Leading DJ index, e.g. "044_" — shared so filename helpers stay in step.
+NNN_PREFIX = re.compile(r"^\d{2,4}_")
+
+
 def preserve_nnn_prefix(orig_filename, new_name):
     """Prepend NNN_ from orig if missing on new_name."""
-    m = re.match(r"^(\d{2,4}_)", orig_filename)
-    if m and not new_name.startswith(m.group(1)):
-        return m.group(1) + new_name
+    m = NNN_PREFIX.match(orig_filename)
+    if m and not new_name.startswith(m.group(0)):
+        return m.group(0) + new_name
     return new_name
