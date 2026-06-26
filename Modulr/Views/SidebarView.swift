@@ -33,7 +33,7 @@ struct SidebarView: View {
                             .font(.caption).foregroundStyle(.secondary)
                     } else {
                         ForEach(library.favouriteFolders, id: \.self) { url in
-                            folderRow(url, icon: "star.fill")
+                            folderRow(url, icon: "star.fill", tint: Theme.favourites)
                         }
                     }
                 } label: { sectionLabel("Favourites") }
@@ -46,7 +46,7 @@ struct SidebarView: View {
                     let rest = library.recents.filter { $0 != library.currentFolder }
                     if !rest.isEmpty {
                         ForEach(rest, id: \.self) { url in
-                            folderRow(url, icon: "clock")
+                            folderRow(url, icon: "clock", tint: Theme.folder)
                         }
                     }
                 } label: { sectionLabel("Folder") }
@@ -117,7 +117,7 @@ struct SidebarView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "folder.fill")
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.folder)
                     Text(cur.lastPathComponent)
                         .fontWeight(.semibold)
                         .foregroundStyle(.primary)
@@ -131,7 +131,7 @@ struct SidebarView: View {
                 library.toggleFavouriteFolder(cur)
             } label: {
                 Image(systemName: library.isFavouriteFolder(cur) ? "star.fill" : "star")
-                    .foregroundStyle(library.isFavouriteFolder(cur) ? Theme.accent : .secondary)
+                    .foregroundStyle(library.isFavouriteFolder(cur) ? Theme.favourites : .secondary)
             }
             .buttonStyle(.borderless)
             .help(library.isFavouriteFolder(cur)
@@ -146,7 +146,7 @@ struct SidebarView: View {
             library.openPlaylist(playlist)
         } label: {
             Label(playlist.name, systemImage: "music.note.list")
-                .foregroundStyle(active ? Theme.accent : .primary)
+                .foregroundStyle(active ? Theme.playlist : .primary)
         }
         .buttonStyle(.plain)
         .help("\(playlist.trackURLs.count) tracks")
@@ -197,7 +197,10 @@ struct SidebarView: View {
             library.openFavourites()
         } label: {
             HStack {
-                Label("Tracks", systemImage: "star.square.on.square")
+                HStack(spacing: 6) {
+                    Image(systemName: "star.square.on.square").foregroundStyle(Theme.favourites)
+                    Text("Tracks")
+                }
                 Spacer()
                 if !library.favouriteTracks.isEmpty {
                     Text("\(library.favouriteTracks.count)")
@@ -206,14 +209,17 @@ struct SidebarView: View {
             }
         }
         .buttonStyle(.plain)
-        .foregroundStyle(library.source == .favourites ? Theme.accent : .primary)
+        .foregroundStyle(library.source == .favourites ? Theme.favourites : .primary)
     }
 
-    private func folderRow(_ url: URL, icon: String) -> some View {
+    private func folderRow(_ url: URL, icon: String, tint: Color) -> some View {
         Button {
             library.openFolder(url)
         } label: {
-            Label(url.lastPathComponent, systemImage: icon)
+            HStack(spacing: 6) {
+                Image(systemName: icon).foregroundStyle(tint)
+                Text(url.lastPathComponent)
+            }
         }
         .buttonStyle(.plain)
         .help(url.path)

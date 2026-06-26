@@ -70,7 +70,7 @@ struct TrackListView: View {
             header
             if editingOrder { editBody } else { tableBody }
         }
-        .tint(Theme.accent)
+        .tint(Theme.color(for: library.source))
         .onChange(of: library.source) { _, new in
             // Folder view defaults to newest-added first; playlist to its # order.
             switch new {
@@ -215,7 +215,7 @@ struct TrackListView: View {
                               systemImage: "waveform.badge.magnifyingglass")
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(Theme.accent)
+                    .tint(Theme.color(for: library.source))
                     .controlSize(.small)
                     .help("Detect BPM and key for the un-analysed tracks in this folder")
                 }
@@ -246,7 +246,9 @@ struct TrackListView: View {
                     Button {
                         library.toggleFavouriteTrack(t.url)
                     } label: {
-                        Image(systemName: library.isFavouriteTrack(t.url) ? "star.fill" : "star")
+                        let fav = library.isFavouriteTrack(t.url)
+                        Image(systemName: fav ? "star.fill" : "star")
+                            .foregroundStyle(fav ? Theme.favourites : Color.secondary)
                     }.buttonStyle(.borderless)
                     Text(t.title).lineLimit(1)
                 }
@@ -267,7 +269,7 @@ struct TrackListView: View {
                 let musical = t.key.map { KeyNormalizer.toMusical($0) } ?? ""
                 let isCompat = !musical.isEmpty && compatKeys.contains(musical)
                 Text(t.keyDisplay)
-                    .foregroundStyle(isCompat ? Theme.accent : .primary)
+                    .foregroundStyle(isCompat ? Theme.keyMatch : .primary)
                     .fontWeight(isCompat ? .semibold : .regular)
             }
             .width(min: 50, ideal: 60, max: 80)
@@ -384,7 +386,7 @@ struct TrackListView: View {
         .padding(.horizontal, 10).padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(dragID == t.id ? Theme.accent.opacity(0.25) : Color.white.opacity(idx % 2 == 0 ? 0.04 : 0))
+                .fill(dragID == t.id ? Theme.color(for: library.source).opacity(0.25) : Color.white.opacity(idx % 2 == 0 ? 0.04 : 0))
         )
         .opacity(dragID == t.id ? 0.5 : 1)
         .cursor(dragID == t.id ? .closedHand : .openHand)

@@ -14,7 +14,10 @@ struct TransportView: View {
     @State private var autoPlay = true
     @State private var isCompact = false
 
-    private func chip(_ label: String, system: String, on: Bool, action: @escaping () -> Void) -> some View {
+    private static let autoPlayColor = Color(red: 0xff/255, green: 0x3b/255, blue: 0x3b/255)
+    private static let shuffleColor  = Color(red: 0x2b/255, green: 0xd4/255, blue: 0x6a/255)
+
+    private func chip(_ label: String, system: String, on: Bool, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Group {
                 if isCompact {
@@ -30,7 +33,7 @@ struct TransportView: View {
         }
         .buttonStyle(.borderless)
         .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(on ? Theme.accent.opacity(0.85) : Color.white.opacity(0.08))
+        .background(on ? tint.opacity(0.85) : Color.white.opacity(0.08))
         .cornerRadius(6)
         .help(label)
     }
@@ -46,8 +49,8 @@ struct TransportView: View {
 
     private var content: some View {
         HStack(spacing: 12) {
-            chip("AutoPlay", system: "play.circle", on: autoPlay) { autoPlay.toggle() }
-            chip("Shuffle", system: "shuffle", on: player.isShuffled) { player.isShuffled.toggle() }
+            chip("AutoPlay", system: "play.circle", on: autoPlay, tint: Self.autoPlayColor) { autoPlay.toggle() }
+            chip("Shuffle", system: "shuffle", on: player.isShuffled, tint: Self.shuffleColor) { player.isShuffled.toggle() }
 
             Menu {
                 Section("Analyse") {
@@ -213,8 +216,8 @@ struct TransportView: View {
                 Image(systemName: player.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                     .foregroundStyle(.white.opacity(0.7))
                     .font(.caption)
-                Slider(value: $player.volume, in: 0...1)
-                    .frame(width: 110)
+                VolumeSlider(value: $player.volume)
+                    .frame(width: 110, height: 16)
             }
         }
         .foregroundStyle(.white)
@@ -222,5 +225,43 @@ struct TransportView: View {
         .buttonStyle(.borderless)
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(Color.black.opacity(0.85))
+    }
+}
+
+private struct VolumeSlider: View {
+    @Binding var value: Float
+
+    private static let track = LinearGradient(
+        colors: [
+            Color(red: 0x3e/255, green: 0xc5/255, blue: 0x5f/255),
+            Color(red: 0xff/255, green: 0x8a/255, blue: 0x1e/255),
+            Color(red: 1, green: 0.4, blue: 0.4),
+        ],
+        startPoint: .leading, endPoint: .trailing
+    )
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let frac = CGFloat(min(1, max(0, value)))
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(0.12)).frame(height: 4)
+                Capsule().fill(Self.track).frame(width: w, height: 4)
+                    .mask(alignment: .leading) {
+                        Capsule().frame(width: frac * w, height: 4)
+                    }
+                Circle().fill(.white)
+                    .frame(width: 13, height: 13)
+                    .shadow(color: .black.opacity(0.4), radius: 1, y: 0.5)
+                    .offset(x: frac * w - 6.5)
+            }
+            .frame(maxHeight: .infinity, alignment: .center)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0).onChanged { g in
+                    value = Float(min(1, max(0, g.location.x / w)))
+                }
+            )
+        }
     }
 }
