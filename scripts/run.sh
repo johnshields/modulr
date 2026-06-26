@@ -17,6 +17,11 @@ cp "$ICON_SRC" "$APP/Contents/Resources/Modulr.icns"
 mkdir -p "$APP/Contents/Resources/scripts"
 cp scripts/analyze.py "$APP/Contents/Resources/scripts/analyze.py"
 rsync -a --exclude '__pycache__' scripts/modulr/ "$APP/Contents/Resources/scripts/modulr/"
+
+MUTAGEN_DIR="$(python3 -c 'import mutagen, os; print(os.path.dirname(mutagen.__file__))' 2>/dev/null || true)"
+if [ -n "$MUTAGEN_DIR" ] && [ -d "$MUTAGEN_DIR" ]; then
+  rsync -a --exclude '__pycache__' "$MUTAGEN_DIR" "$APP/Contents/Resources/scripts/"
+fi
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -60,12 +65,17 @@ EOF
 xattr -cr "$APP" 2>/dev/null || true
 codesign --force --deep --sign - "$APP" 2>/dev/null || true
 
-if [ "$1" = "--install" ]; then
-  rm -rf /Applications/Modulr.app
-  cp -R "$APP" /Applications/Modulr.app
-  xattr -cr /Applications/Modulr.app 2>/dev/null || true
-  codesign --force --deep --sign - /Applications/Modulr.app 2>/dev/null || true
-  open /Applications/Modulr.app
-else
-  open "$APP"
-fi
+case "${1:-}" in
+  --install)
+    rm -rf /Applications/Modulr.app
+    cp -R "$APP" /Applications/Modulr.app
+    xattr -cr /Applications/Modulr.app 2>/dev/null || true
+    codesign --force --deep --sign - /Applications/Modulr.app 2>/dev/null || true
+    open /Applications/Modulr.app
+    ;;
+  --package)
+    ;;
+  *)
+    open "$APP"
+    ;;
+esac

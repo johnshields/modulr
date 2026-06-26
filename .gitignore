@@ -64,3 +64,6 @@ coverage/
 # OS / system
 .Spotlight-V100
 .fseventsd
+
+# Packaged release artifacts
+dist/
