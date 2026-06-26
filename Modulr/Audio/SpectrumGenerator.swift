@@ -111,13 +111,15 @@ enum SpectrumGenerator {
     /// bin (from Nyquist down) where the 200 Hz window below is ≥ 6 dB louder.
     static func sweepForCliff(spectrum: [Float], sampleRate: Double,
                               slopeWindowHz: Double = 200,
-                              slopeMinDropDB: Float = 6) -> Double {
+                              slopeMinDropDB: Float = 6,
+                              minCutoffHz: Double = 1000) -> Double {
         let bins = spectrum.count
         guard bins > 4 else { return sampleRate / 2 }
         let nyquist = sampleRate / 2
         let hzPerBin = nyquist / Double(bins - 1)
         let slopeWindowBins = max(2, Int(slopeWindowHz / hzPerBin))
-        for b in stride(from: bins - 1, through: slopeWindowBins, by: -1) {
+        let floorBin = max(slopeWindowBins, Int(minCutoffHz / hzPerBin))
+        for b in stride(from: bins - 1, through: floorBin, by: -1) {
             if spectrum[b - slopeWindowBins] - spectrum[b] >= slopeMinDropDB {
                 return Double(b) * hzPerBin
             }
