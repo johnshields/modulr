@@ -78,6 +78,9 @@ struct TrackListView: View {
             case .playlist: sortOrder = [.init(\.trackNumberSort)]
             }
         }
+        .onChange(of: unanalysedCount) { _, count in
+            if unanalysedOnly && count == 0 { unanalysedOnly = false }
+        }
         .sheet(item: $tagTrack) { t in TagEditSheet(track: t).environmentObject(library) }
         .sheet(item: $spectrumTrack) { t in SpectrumSheet(trackURL: t.url) }
         .sheet(item: $convertTrack) { t in
