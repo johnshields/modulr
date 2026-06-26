@@ -2,10 +2,10 @@ cask "modulr" do
   version "1.0"
   sha256 "REPLACE_WITH_DMG_SHA256"
 
-  url "https://github.com/fromlost/modulr/releases/download/v#{version}/Modulr-#{version}.dmg"
+  url "https://github.com/johnshields/modulr/releases/download/v#{version}/Modulr-#{version}.dmg"
   name "Modulr"
   desc "DJ track analyser and library manager"
-  homepage "https://github.com/fromlost/modulr"
+  homepage "https://github.com/johnshields/modulr"
 
   license :mit
 

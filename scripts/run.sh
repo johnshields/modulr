@@ -32,7 +32,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundleDisplayName</key><string>Modulr</string>
   <key>CFBundleIconFile</key><string>Modulr</string>
   <key>CFBundleIdentifier</key><string>com.fromlost.modulr</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleVersion</key><string>1.0</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.music</string>

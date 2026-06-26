@@ -1,6 +1,6 @@
 # Modulr
 
-Open-source DJ companion for macOS. Analyse, tag, mix, master.
+Open-source DJ companion for macOS. Analyse, tag, mix.
 
 ## Stack
 Swift + SwiftUI · AVFoundation · Accelerate · Python (madmom, librosa, ffmpeg, mutagen)
@@ -9,7 +9,7 @@ Swift + SwiftUI · AVFoundation · Accelerate · Python (madmom, librosa, ffmpeg
 
 ### Homebrew (cask)
 ```bash
-brew install --cask fromlost/modulr/modulr
+brew install --cask johnshields/modulr/modulr
 ```
 
 ### From source
