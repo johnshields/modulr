@@ -416,6 +416,12 @@ struct TrackListView: View {
         Button { loudnessTrack = t } label: {
             Label("Normalise Loudness…", systemImage: "speaker.wave.3.fill")
         }
+        Button {
+            analyzer.trimSilenceFile(t.url) { library.reloadCurrent() }
+            showAnalyze = true
+        } label: {
+            Label("Trim End Silence", systemImage: "scissors")
+        }
         Divider()
         Menu {
             ForEach(library.playlists) { p in

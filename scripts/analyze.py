@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from modulr.logger import log_error
 from modulr.mastering.loudness import LoudnessNormaliser
+from modulr.mastering.silence import SilenceTrimmer
 from modulr.mastering.tweak import TempoPitchBaker
 from modulr.metadata.tags import TagIO
 from modulr.pipelines import (
@@ -64,6 +65,10 @@ def _build_parser():
                    help="With --convert-folder-mp3, delete each original after successful encode")
     p.add_argument("--brighten", metavar="FILE",
                    help="Run ffmpeg exciter + high-shelf on FILE; writes a _bright sibling")
+    p.add_argument("--trim-silence", metavar="FILE",
+                   help="Trim trailing silence over 10s from FILE")
+    p.add_argument("--trim-silence-folder", metavar="FOLDER",
+                   help="Trim trailing silence over 10s from every track in FOLDER")
     p.add_argument("--boost-file-sibling", metavar="FILE",
                    help="Measure peak + write a _loud sibling lifted to ~ -0.3 dBFS")
     return p
@@ -148,6 +153,10 @@ def main():
         BrightenPipeline().brighten(args.brighten); return
     if args.boost_file_sibling:
         LoudnessNormaliser().boost_to_sibling(args.boost_file_sibling); return
+    if args.trim_silence:
+        SilenceTrimmer().trim_one(args.trim_silence); return
+    if args.trim_silence_folder:
+        SilenceTrimmer().trim_folder(args.trim_silence_folder); return
 
     if args.reset:
         _dispatch_reset(args); return

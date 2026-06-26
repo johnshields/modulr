@@ -10,7 +10,7 @@ struct AnalyzeSheet: View {
 
     private struct Counts {
         var analysed = 0, skipped = 0, errors = 0, renamed = 0
-        var measured = 0, applied = 0, planned = 0
+        var measured = 0, applied = 0, planned = 0, trimmed = 0
     }
 
     private var counts: Counts {
@@ -23,6 +23,7 @@ struct AnalyzeSheet: View {
             else if line.hasPrefix("MEASURE:") { c.measured += 1 }
             else if line.hasPrefix("PLAN:") { c.planned += 1 }
             else if line.hasPrefix("APPLIED:") { c.applied += 1 }
+            else if line.hasPrefix("TRIMMED:") { c.trimmed += 1 }
         }
         return c
     }
@@ -109,6 +110,10 @@ struct AnalyzeSheet: View {
                 chip("Renamed", count: c.renamed, color: Theme.accent)
                 chip("Skipped", count: c.skipped, color: .gray)
                 chip("Errors", count: c.errors, color: .red)
+            case .trimSilence:
+                chip("Trimmed", count: c.trimmed, color: .green)
+                chip("Skipped", count: c.skipped, color: .gray)
+                chip("Errors", count: c.errors, color: .red)
             default:
                 chip("Analysed", count: c.analysed, color: Theme.accent)
                 chip("Skipped", count: c.skipped, color: .gray)
@@ -188,6 +193,7 @@ struct AnalyzeSheet: View {
         if line.hasPrefix("MEASURE:") { return .gray }
         if line.hasPrefix("PLAN:") { return Theme.accent }
         if line.hasPrefix("APPLIED:") { return .green }
+        if line.hasPrefix("TRIMMED:") { return .green }
         if line.hasPrefix("TARGET:") { return .orange }
         return .secondary
     }

@@ -7,7 +7,7 @@ import Combine
  */
 final class Analyzer: ObservableObject {
     enum Mode: String {
-        case analyse, reset, normalize, syncFilename, convert, brighten, idle
+        case analyse, reset, normalize, syncFilename, convert, brighten, trimSilence, idle
 
         var title: String {
             switch self {
@@ -17,6 +17,7 @@ final class Analyzer: ObservableObject {
             case .syncFilename: return "Syncing Filenames"
             case .convert: return "Converting"
             case .brighten: return "Brightening"
+            case .trimSilence: return "Trimming Silence"
             case .idle: return "Working"
             }
         }
@@ -29,6 +30,7 @@ final class Analyzer: ObservableObject {
             case .syncFilename: return "Adding _KEY_BPM suffix from tags"
             case .convert: return "Transcoding to 320 kbps MP3"
             case .brighten: return "Adding harmonic exciter + high-shelf"
+            case .trimSilence: return "Cutting trailing silence over 10s"
             case .idle: return ""
             }
         }
@@ -118,6 +120,16 @@ final class Analyzer: ObservableObject {
     func brightenFile(_ url: URL, completion: @escaping () -> Void) {
         mode = .brighten
         run(args: ["--brighten", url.path], completion: completion)
+    }
+
+    func trimSilenceFile(_ url: URL, completion: @escaping () -> Void) {
+        mode = .trimSilence
+        run(args: ["--trim-silence", url.path], completion: completion)
+    }
+
+    func trimSilenceFolder(_ folder: URL, completion: @escaping () -> Void) {
+        mode = .trimSilence
+        run(args: ["--trim-silence-folder", folder.path], completion: completion)
     }
 
     func boostFileSibling(_ url: URL, completion: @escaping () -> Void) {

@@ -55,6 +55,23 @@ class FfmpegRunner:
             return None, err
         return tmp.name, None
 
+    def trim_tail(self, src, end_seconds):
+        """Copy src up to end_seconds into a temp file, no re-encode.
+        Returns (out_path, err_text).
+        """
+        ext = os.path.splitext(src)[1].lower()
+        tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+        tmp.close()
+        cmd = [self.binary(), "-y", "-hide_banner", "-loglevel", "error",
+               "-i", src, "-t", f"{end_seconds:.3f}", "-c", "copy",
+               "-map_metadata", "0", tmp.name]
+        proc = subprocess.run(cmd, stderr=subprocess.PIPE)
+        if proc.returncode != 0:
+            try: os.unlink(tmp.name)
+            except Exception: pass
+            return None, proc.stderr.decode("utf-8", errors="ignore")
+        return tmp.name, None
+
     def transcode(self, src, dst, *, filters=None, codec=None, bitrate=None,
                   quality=None, extra_args=None):
         """Run a single ffmpeg invocation src -> dst with optional filter chain,
