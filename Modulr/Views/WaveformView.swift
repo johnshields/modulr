@@ -5,7 +5,7 @@ struct WaveformView: View {
     @EnvironmentObject var player: AudioPlayer
     @EnvironmentObject var library: Library
     @ObservedObject var monitor: PlaybackMonitor
-    @State private var peaks: [Float] = []
+    @State private var slices: [WaveSlice] = []
     @State private var artwork: NSImage?
     @State private var hoverX: CGFloat?
     @State private var zoom: CGFloat = 1.0
@@ -48,14 +48,14 @@ struct WaveformView: View {
         }
         .task(id: player.currentURL) {
             guard let url = player.currentURL else {
-                peaks = []
+                slices = []
                 artwork = nil
                 return
             }
             zoom = 1
-            async let p = WaveformLoader.peaks(from: url)
+            async let p = WaveformLoader.slices(from: url)
             async let a = ArtworkLoader.load(url)
-            peaks = await p
+            slices = await p
             artwork = await a
         }
         .onReceive(NotificationCenter.default.publisher(for: .artworkChanged)) { note in
@@ -103,45 +103,52 @@ struct WaveformView: View {
                             .frame(width: contentWidth, height: 1)
 
                             Canvas { ctx, size in
-                                guard !peaks.isEmpty else { return }
+                                guard !slices.isEmpty else { return }
                                 let mid = size.height / 2
-                                let step = size.width / CGFloat(peaks.count)
+                                let step = size.width / CGFloat(slices.count)
                                 let progress = player.duration > 0 ? monitor.currentTime / player.duration : 0
                                 let progressX = size.width * CGFloat(progress)
 
-                                let dim = Color(white: 0.35)
-                                // Deep-to-bright amber ramp along the played region.
-                                func gradColor(_ t: Double) -> Color {
-                                    let r = (1 - t) * 0xc2/255.0 + t * 0xff/255.0
-                                    let g = (1 - t) * 0x60/255.0 + t * 0xb8/255.0
-                                    let b = (1 - t) * 0x0f/255.0 + t * 0x4d/255.0
-                                    return Color(red: r, green: g, blue: b)
+                                // Rekordbox-style RGB: low->red, mid->green, high->blue.
+                                // Remove the shared (min) component so the dominant
+                                // band shows as a saturated hue instead of pastel.
+                                func bandColor(_ s: WaveSlice, played: Bool) -> Color {
+                                    let gamma = 0.85
+                                    // Bass is weighted up and mids down so kick/bass
+                                    // reads red instead of music's mid-heavy green.
+                                    var r = pow(Double(s.low), gamma) * 1.7
+                                    var g = pow(Double(s.mid), gamma) * 0.8
+                                    var b = pow(Double(s.high), gamma) * 1.2
+                                    let floor = min(r, min(g, b)) * 0.6
+                                    r -= floor; g -= floor; b -= floor
+                                    let gain = played ? 1.3 : 0.5
+                                    return Color(red: max(0, min(1, r * gain)),
+                                                 green: max(0, min(1, g * gain)),
+                                                 blue: max(0, min(1, b * gain)))
                                 }
 
-                                for (i, p) in peaks.enumerated() {
+                                for (i, s) in slices.enumerated() {
                                     let x = CGFloat(i) * step
-                                    let h = CGFloat(p) * size.height
+                                    let h = CGFloat(s.peak) * size.height
                                     let rect = CGRect(x: x, y: mid - h/2, width: max(1, step - 0.5), height: h)
-                                    let played = x < progressX
-                                    let t = size.width > 0 ? Double(x / size.width) : 0
-                                    ctx.fill(Path(rect), with: .color(played ? gradColor(t) : dim))
+                                    ctx.fill(Path(rect), with: .color(bandColor(s, played: x < progressX)))
                                 }
 
-                                let red = Color(red: 1.0, green: 0.25, blue: 0.32)
+                                let head = Color(red: 1.0, green: 0.25, blue: 0.32)
                                 var glow = Path()
                                 glow.move(to: CGPoint(x: progressX, y: 0))
                                 glow.addLine(to: CGPoint(x: progressX, y: size.height))
-                                ctx.stroke(glow, with: .color(red.opacity(0.25)), lineWidth: 6)
-                                ctx.stroke(glow, with: .color(red.opacity(0.5)), lineWidth: 3)
-                                ctx.stroke(glow, with: .color(red), lineWidth: 1.5)
+                                ctx.stroke(glow, with: .color(head.opacity(0.25)), lineWidth: 6)
+                                ctx.stroke(glow, with: .color(head.opacity(0.5)), lineWidth: 3)
+                                ctx.stroke(glow, with: .color(head), lineWidth: 1.5)
 
                                 if let hx = self.hoverX {
                                     var hover = Path()
                                     hover.move(to: CGPoint(x: hx, y: 0))
                                     hover.addLine(to: CGPoint(x: hx, y: size.height))
-                                    ctx.stroke(hover, with: .color(red.opacity(0.15)), lineWidth: 6)
-                                    ctx.stroke(hover, with: .color(red.opacity(0.35)), lineWidth: 3)
-                                    ctx.stroke(hover, with: .color(red.opacity(0.7)), lineWidth: 1)
+                                    ctx.stroke(hover, with: .color(head.opacity(0.15)), lineWidth: 6)
+                                    ctx.stroke(hover, with: .color(head.opacity(0.35)), lineWidth: 3)
+                                    ctx.stroke(hover, with: .color(head.opacity(0.7)), lineWidth: 1)
                                 }
                             }
                             .frame(width: contentWidth, height: geo.size.height)

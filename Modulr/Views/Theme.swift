@@ -1,5 +1,8 @@
 import SwiftUI
+import AppKit
 
 enum Theme {
-    static let accent = Color(red: 0xff/255, green: 0x8a/255, blue: 0x1e/255)
+    // Follow the user's macOS accent (System Settings > Appearance > Accent),
+    // matching stock Apple apps. Resolves dynamically, including "multicolour".
+    static let accent = Color(nsColor: .controlAccentColor)
 }

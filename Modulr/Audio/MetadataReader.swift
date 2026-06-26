@@ -49,7 +49,7 @@ enum MetadataReader {
         for item in items where item.commonKey == .commonKeyArtist {
             if let value = await loadString(item)?.trimmingCharacters(in: .whitespaces),
                !value.isEmpty {
-                return value.replacingOccurrences(of: "/", with: ", ")
+                return value
             }
         }
         return nil

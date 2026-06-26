@@ -52,7 +52,7 @@ struct LevelMeterView: View {
                 LinearGradient(
                     colors: [
                         Color(red: 0x3e/255, green: 0xc5/255, blue: 0x5f/255),
-                        Theme.accent,
+                        Color(red: 0xff/255, green: 0x8a/255, blue: 0x1e/255),
                         Color(red: 1, green: 0.4, blue: 0.4)
                     ],
                     startPoint: .bottom, endPoint: .top
