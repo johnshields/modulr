@@ -44,19 +44,14 @@ final class Analyzer: ObservableObject {
     @Published var renameAfter: Bool {
         didSet { defaults.set(renameAfter, forKey: kRename) }
     }
-    @Published var keepOrder: Bool {
-        didSet { defaults.set(keepOrder, forKey: kKeepOrder) }
-    }
 
     private var task: Process?
     private let defaults = UserDefaults.standard
     private let kRename = "modulr.renameAfter"
-    private let kKeepOrder = "modulr.keepOrder"
     private var totalCount: Double = 0
 
     init() {
         self.renameAfter = UserDefaults.standard.bool(forKey: "modulr.renameAfter")
-        self.keepOrder = UserDefaults.standard.bool(forKey: "modulr.keepOrder")
     }
 
     /**
@@ -66,7 +61,6 @@ final class Analyzer: ObservableObject {
         mode = .analyse
         var args = ["--file", url.path]
         if rename { args.append("--rename") }
-        if rename && keepOrder { args.append("--keep-numbers") }
         run(args: args, completion: completion)
     }
 
@@ -75,33 +69,13 @@ final class Analyzer: ObservableObject {
         mode = .analyse
         var args = ["--folder", url.path]
         if rename { args.append("--rename") }
-        if rename && keepOrder { args.append("--keep-numbers") }
         if onlyUntagged { args.append("--only-untagged") }
         run(args: args, completion: completion)
     }
 
-    func resetFolder(_ url: URL, keepNumbers: Bool = false, completion: @escaping () -> Void) {
+    func resetFolder(_ url: URL, completion: @escaping () -> Void) {
         mode = .reset
-        var args = ["--folder", url.path, "--reset"]
-        if keepNumbers { args.append("--keep-numbers") }
-        run(args: args, completion: completion)
-    }
-
-    func resetFile(_ url: URL, keepNumbers: Bool = false, completion: @escaping () -> Void) {
-        mode = .reset
-        var args = ["--file", url.path, "--reset"]
-        if keepNumbers { args.append("--keep-numbers") }
-        run(args: args, completion: completion)
-    }
-
-    func stripNumbersFolder(_ url: URL, completion: @escaping () -> Void) {
-        mode = .reset
-        run(args: ["--folder", url.path, "--strip-numbers"], completion: completion)
-    }
-
-    func stripNumbersFile(_ url: URL, completion: @escaping () -> Void) {
-        mode = .reset
-        run(args: ["--file", url.path, "--strip-numbers"], completion: completion)
+        run(args: ["--folder", url.path, "--reset"], completion: completion)
     }
 
     func convertToMP3(_ url: URL, completion: @escaping () -> Void) {

@@ -2,7 +2,6 @@
 Each pipeline class owns one CLI-facing operation:
   AnalysePipeline        -- detect BPM/key, write tags, optional rename
   ResetPipeline          -- strip _KEY_BPM and NNN_ from filenames
-  StripNumbersPipeline   -- strip leading NNN_ from filenames; keep _KEY_BPM
   SyncFilenamePipeline   -- append _KEY_BPM to filenames using existing tags
   ConvertPipeline        -- transcode wav/m4a to 320 kbps MP3 via ffmpeg
   BrightenPipeline       -- ffmpeg exciter + high-shelf for dull / lossy tracks
@@ -12,7 +11,7 @@ import os
 from .analysis.analyser import TrackAnalyser, default_analyser
 from .logger import log, log_done, log_error, log_progress
 from .mastering.ffmpeg import FfmpegRunner
-from .metadata.files import NNN_PREFIX, list_audio, preserve_nnn_prefix
+from .metadata.files import list_audio, preserve_nnn_prefix
 from .metadata.tags import TagIO
 
 _TAG_EXTS = (".mp3", ".m4a", ".wav", ".mp4", ".aac")
@@ -43,7 +42,7 @@ class AnalysePipeline(_BasePipeline):
         self.analyser = analyser or default_analyser()
 
     def run_one(self, path, do_rename, idx=None, total=None,
-                allow_skip=True, keep_numbers=False):
+                allow_skip=True):
         filename = os.path.basename(path)
         if idx is not None:
             log_progress(idx, total, filename)
@@ -52,10 +51,9 @@ class AnalysePipeline(_BasePipeline):
         if musical is None:
             return
         if do_rename:
-            self._rename_to_dj(path, filename, musical, bpm, keep_numbers)
+            self._rename_to_dj(path, filename, musical, bpm)
 
-    def run_folder(self, folder, do_rename, keep_numbers=False,
-                   only_untagged=False):
+    def run_folder(self, folder, do_rename, only_untagged=False):
         """Iterate over folder. When `only_untagged` is set, pre-filter the
         list so progress reflects the un-analysed subset only, instead of
         marching past every track and printing SKIP for the tagged ones.
@@ -71,7 +69,6 @@ class AnalysePipeline(_BasePipeline):
                 path, do_rename,
                 idx=i, total=len(files),
                 allow_skip=not only_untagged,
-                keep_numbers=keep_numbers,
             )
         log_done()
 
@@ -96,8 +93,8 @@ class AnalysePipeline(_BasePipeline):
         self.tag_io.write_pair(path, bpm, musical)
         return musical, bpm
 
-    def _rename_to_dj(self, path, filename, musical, bpm, keep_numbers):
-        new_name = self.tag_io.derived_dj_name(path, musical, bpm, keep_numbers=keep_numbers)
+    def _rename_to_dj(self, path, filename, musical, bpm):
+        new_name = self.tag_io.derived_dj_name(path, musical, bpm)
         new_path = os.path.join(os.path.dirname(path), new_name)
         if new_path == path:
             self.tag_io.sync_title_to_filename(path)
@@ -106,9 +103,9 @@ class AnalysePipeline(_BasePipeline):
 
 
 class ResetPipeline(_BasePipeline):
-    """Strip _KEY_BPM and (optionally) leading NNN_ from filenames."""
+    """Strip _KEY_BPM and leading NNN_ from filenames."""
 
-    def run_one(self, path, idx=None, total=None, keep_numbers=False):
+    def run_one(self, path, idx=None, total=None):
         filename = os.path.basename(path)
         if idx is not None:
             log_progress(idx, total, filename)
@@ -117,8 +114,6 @@ class ResetPipeline(_BasePipeline):
         if not stem:
             log(f"SKIP: {filename} (empty stem)")
             return
-        if keep_numbers:
-            stem = preserve_nnn_prefix(filename, stem)
 
         ext = os.path.splitext(filename)[1].lower() or ".mp3"
         new_name = f"{stem}{ext}"
@@ -127,29 +122,6 @@ class ResetPipeline(_BasePipeline):
             self.tag_io.sync_title_to_filename(path)
             log(f"OK: {filename} (synced title)")
             return
-        if os.path.exists(new_path):
-            log(f"SKIP: {filename} -> {new_name} (collision)")
-            return
-        if self.tag_io.rename_and_sync_title(path, new_path):
-            log(f"RENAMED: {filename} -> {new_name}")
-
-    def run_folder(self, folder, keep_numbers=False):
-        self._iterate_folder(folder, self.run_one, keep_numbers=keep_numbers)
-
-
-class StripNumbersPipeline(_BasePipeline):
-    """Remove leading NNN_ order prefix from filenames; preserve everything else."""
-
-    def run_one(self, path, idx=None, total=None):
-        filename = os.path.basename(path)
-        if idx is not None:
-            log_progress(idx, total, filename)
-
-        new_name = NNN_PREFIX.sub("", filename, count=1)
-        if new_name == filename:
-            log(f"OK: {filename} (no number prefix)")
-            return
-        new_path = os.path.join(os.path.dirname(path), new_name)
         if os.path.exists(new_path):
             log(f"SKIP: {filename} -> {new_name} (collision)")
             return

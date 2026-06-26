@@ -6,12 +6,11 @@ from .metadata.tags import TagIO
 from .pipelines import (
     AnalysePipeline,
     ResetPipeline,
-    StripNumbersPipeline,
     SyncFilenamePipeline,
 )
 
 __all__ = [
     "default_analyser", "TrackAnalyser", "TagIO",
     "LoudnessNormaliser", "TempoPitchBaker",
-    "AnalysePipeline", "ResetPipeline", "StripNumbersPipeline", "SyncFilenamePipeline",
+    "AnalysePipeline", "ResetPipeline", "SyncFilenamePipeline",
 ]

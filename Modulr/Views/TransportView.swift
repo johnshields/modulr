@@ -77,33 +77,15 @@ struct TransportView: View {
                     Toggle(isOn: $analyzer.renameAfter) {
                         Label("Rename file after analyse", systemImage: "pencil.line")
                     }
-                    Toggle(isOn: $analyzer.keepOrder) {
-                        Label("Keep order (NNN_ prefix)", systemImage: "list.number")
-                    }
-                    .disabled(!analyzer.renameAfter)
                 }
 
                 Section("Cleanup") {
                     Button {
                         guard let cur = library.currentFolder else { return }
-                        analyzer.resetFolder(cur, keepNumbers: false) {}
+                        analyzer.resetFolder(cur) {}
                         showAnalyze = true
                     } label: {
                         Label("Reset Names (clean)", systemImage: "arrow.counterclockwise")
-                    }
-                    Button {
-                        guard let cur = library.currentFolder else { return }
-                        analyzer.resetFolder(cur, keepNumbers: true) {}
-                        showAnalyze = true
-                    } label: {
-                        Label("Reset Names (keep order)", systemImage: "list.number")
-                    }
-                    Button {
-                        guard let cur = library.currentFolder else { return }
-                        analyzer.stripNumbersFolder(cur) {}
-                        showAnalyze = true
-                    } label: {
-                        Label("Remove Order Numbers", systemImage: "number.circle")
                     }
                     .disabled(library.currentFolder == nil)
                 }

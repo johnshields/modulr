@@ -23,7 +23,6 @@ from modulr.pipelines import (
     BrightenPipeline,
     ConvertPipeline,
     ResetPipeline,
-    StripNumbersPipeline,
     SyncFilenamePipeline,
 )
 
@@ -37,8 +36,6 @@ def _build_parser():
                    help="With --folder, skip tracks that already have BPM and key")
     p.add_argument("--reset", action="store_true",
                    help="Strip _KEY_BPM and NNN_ from filenames; do not analyse")
-    p.add_argument("--keep-numbers", action="store_true",
-                   help="With --reset, preserve existing NNN_ prefix")
     p.add_argument("--normalize", metavar="FOLDER",
                    help="Measure loudness of all tracks; report gain plan")
     p.add_argument("--normalize-file", metavar="FILE",
@@ -47,9 +44,6 @@ def _build_parser():
                    help="With --normalize/--normalize-file, re-encode to apply gain")
     p.add_argument("--sync-filename", metavar="FOLDER",
                    help="Append _KEY_BPM to filenames using existing tags")
-    p.add_argument("--strip-numbers", action="store_true",
-                   help="Strip leading NNN_ order prefix; preserve _KEY_BPM. "
-                        "Combine with --folder or --file.")
     p.add_argument("--bake-tweak", nargs=5,
                    metavar=("PATH", "RATE", "CENTS", "BPM", "KEY"),
                    help="Bake tempo+pitch into a track. Use - for missing BPM/KEY.")
@@ -77,37 +71,21 @@ def _build_parser():
 def _dispatch_analyse(args):
     pipeline = AnalysePipeline()
     if args.file:
-        pipeline.run_one(
-            args.file, args.rename,
-            allow_skip=False, keep_numbers=args.keep_numbers,
-        )
+        pipeline.run_one(args.file, args.rename, allow_skip=False)
         return
     if not args.folder:
         log_error("need --folder or --file")
         sys.exit(1)
-    pipeline.run_folder(args.folder, args.rename,
-                        keep_numbers=args.keep_numbers,
-                        only_untagged=args.only_untagged)
+    pipeline.run_folder(args.folder, args.rename, only_untagged=args.only_untagged)
 
 
 def _dispatch_reset(args):
     pipeline = ResetPipeline()
     if args.file:
-        pipeline.run_one(args.file, keep_numbers=args.keep_numbers)
-        return
-    if not args.folder:
-        log_error("--reset needs --folder or --file")
-        sys.exit(1)
-    pipeline.run_folder(args.folder, keep_numbers=args.keep_numbers)
-
-
-def _dispatch_strip_numbers(args):
-    pipeline = StripNumbersPipeline()
-    if args.file:
         pipeline.run_one(args.file)
         return
     if not args.folder:
-        log_error("--strip-numbers needs --folder or --file")
+        log_error("--reset needs --folder or --file")
         sys.exit(1)
     pipeline.run_folder(args.folder)
 
@@ -160,8 +138,6 @@ def main():
 
     if args.reset:
         _dispatch_reset(args); return
-    if args.strip_numbers:
-        _dispatch_strip_numbers(args); return
 
     _dispatch_analyse(args)
 
