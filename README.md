@@ -14,11 +14,9 @@ brew install --cask fromlost/modulr/modulr
 
 ### From source
 ```bash
+bash scripts/setup.sh        # one-time: brew + pip dependencies
 bash scripts/run.sh --install
 ```
-Requires `brew install python ffmpeg` and
-`pip3 install --break-system-packages madmom librosa cython numpy mutagen`.
-Packaged builds vendor `mutagen`, so only the analysis stack needs pip.
 
 ## Package a release
 ```bash
@@ -42,3 +40,6 @@ Set `DEVELOPER_ID` and `NOTARY_PROFILE` to sign and notarise.
 - Follows the macOS system accent colour
 - Folders sort newest-added first; playlists by track number
 - Open With integration (single-instance window)
+
+## License
+MIT — see [LICENSE](LICENSE).

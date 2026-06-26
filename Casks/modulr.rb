@@ -7,6 +7,8 @@ cask "modulr" do
   desc "DJ track analyser and library manager"
   homepage "https://github.com/fromlost/modulr"
 
+  license :mit
+
   depends_on macos: ">= :sonoma"
   depends_on formula: "ffmpeg"
   depends_on formula: "python@3.12"
