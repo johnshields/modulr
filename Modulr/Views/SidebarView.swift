@@ -27,6 +27,7 @@ struct SidebarView: View {
         VStack(spacing: 0) {
             List {
                 DisclosureGroup(isExpanded: $favouritesOpen) {
+                    favouriteTracksRow
                     if library.favouriteFolders.isEmpty {
                         Text("Star a folder to pin it here")
                             .font(.caption).foregroundStyle(.secondary)
@@ -191,6 +192,23 @@ struct SidebarView: View {
     }
 
     @ViewBuilder
+    private var favouriteTracksRow: some View {
+        Button {
+            library.openFavourites()
+        } label: {
+            HStack {
+                Label("Tracks", systemImage: "star.square.on.square")
+                Spacer()
+                if !library.favouriteTracks.isEmpty {
+                    Text("\(library.favouriteTracks.count)")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(library.source == .favourites ? Theme.accent : .primary)
+    }
+
     private func folderRow(_ url: URL, icon: String) -> some View {
         Button {
             library.openFolder(url)

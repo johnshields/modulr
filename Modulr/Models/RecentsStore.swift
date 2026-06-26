@@ -9,6 +9,7 @@ final class RecentsStore {
     private let kLastFolder = "modulr.lastFolder"
     private let kRecents = "modulr.recents"
     private let kFavouriteFolders = "modulr.favouriteFolders"
+    private let kFavouriteTracks = "modulr.favouriteTracks"
     private let maxRecents = 10
 
     var lastFolder: URL? {
@@ -45,5 +46,16 @@ final class RecentsStore {
 
     func saveFavouriteFolders(_ urls: [URL]) {
         defaults.set(urls.map(\.path), forKey: kFavouriteFolders)
+    }
+
+    func loadFavouriteTracks() -> [URL] {
+        let paths = defaults.stringArray(forKey: kFavouriteTracks) ?? []
+        return paths
+            .map { URL(fileURLWithPath: $0) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    func saveFavouriteTracks(_ urls: [URL]) {
+        defaults.set(urls.map(\.path), forKey: kFavouriteTracks)
     }
 }

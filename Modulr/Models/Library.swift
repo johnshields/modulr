@@ -12,11 +12,11 @@ extension Notification.Name {
     static let libraryFolderReloaded = Notification.Name("modulr.libraryFolderReloaded")
 }
 
-enum LibrarySource: Equatable { case folder, playlist }
+enum LibrarySource: Equatable { case folder, playlist, favourites }
 
 final class Library: ObservableObject {
     @Published var tracks: [Track] = []
-    @Published var favorites: Set<UUID> = []
+    @Published var favouriteTracks: Set<URL> = []
     @Published var recents: [URL] = []
     @Published var favouriteFolders: [URL] = []
     @Published var currentFolder: URL?
@@ -31,6 +31,7 @@ final class Library: ObservableObject {
     init() {
         recents = store.loadRecents()
         favouriteFolders = store.loadFavouriteFolders()
+        favouriteTracks = Set(store.loadFavouriteTracks())
         playlists = playlistStore.loadAll()
         if let url = store.lastFolder { openFolder(url) }
     }
@@ -120,6 +121,10 @@ final class Library: ObservableObject {
 
     func updatePlaylistURL(from old: URL, to new: URL) {
         guard old != new else { return }
+        if favouriteTracks.remove(old) != nil {
+            favouriteTracks.insert(new)
+            store.saveFavouriteTracks(Array(favouriteTracks))
+        }
         for (idx, var playlist) in playlists.enumerated() {
             var dirty = false
             for (urlIdx, url) in playlist.trackURLs.enumerated() where url == old {
@@ -206,6 +211,8 @@ final class Library: ObservableObject {
             if let folder = currentFolder { openFolder(folder) }
         case .playlist:
             if let p = currentPlaylist { openPlaylist(p) }
+        case .favourites:
+            openFavourites()
         }
     }
 
@@ -255,8 +262,30 @@ final class Library: ObservableObject {
         }
     }
 
-    func toggleFavorite(_ id: UUID) {
-        if favorites.contains(id) { favorites.remove(id) } else { favorites.insert(id) }
+    func isFavouriteTrack(_ url: URL) -> Bool {
+        favouriteTracks.contains(url)
+    }
+
+    func toggleFavouriteTrack(_ url: URL) {
+        if favouriteTracks.contains(url) {
+            favouriteTracks.remove(url)
+            if source == .favourites { tracks.removeAll { $0.url == url } }
+        } else {
+            favouriteTracks.insert(url)
+        }
+        store.saveFavouriteTracks(Array(favouriteTracks))
+    }
+
+    func openFavourites() {
+        source = .favourites
+        currentPlaylist = nil
+        tracks = []
+        NotificationCenter.default.post(name: .libraryFolderReloaded, object: nil)
+        let urls = Array(favouriteTracks).filter { FileManager.default.fileExists(atPath: $0.path) }
+        Task { [weak self] in
+            let scanned = await LibraryScanner.scanURLs(urls)
+            await MainActor.run { [weak self] in self?.tracks = scanned }
+        }
     }
 
     func rename(_ id: UUID, to newName: String) throws {
@@ -271,10 +300,13 @@ final class Library: ObservableObject {
 
     func deleteTrack(_ id: UUID) throws {
         guard let idx = tracks.firstIndex(where: { $0.id == id }) else { return }
+        let url = tracks[idx].url
         var resultingURL: NSURL?
-        try FileManager.default.trashItem(at: tracks[idx].url, resultingItemURL: &resultingURL)
+        try FileManager.default.trashItem(at: url, resultingItemURL: &resultingURL)
         tracks.remove(at: idx)
-        favorites.remove(id)
+        if favouriteTracks.remove(url) != nil {
+            store.saveFavouriteTracks(Array(favouriteTracks))
+        }
     }
 
     func updateTags(_ id: UUID, meta: TrackMeta) throws {

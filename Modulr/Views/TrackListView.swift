@@ -74,7 +74,7 @@ struct TrackListView: View {
         .onChange(of: library.source) { _, new in
             // Folder view defaults to newest-added first; playlist to its # order.
             switch new {
-            case .folder: sortOrder = [.init(\.dateAddedSort, order: .reverse)]
+            case .folder, .favourites: sortOrder = [.init(\.dateAddedSort, order: .reverse)]
             case .playlist: sortOrder = [.init(\.trackNumberSort)]
             }
         }
@@ -244,9 +244,9 @@ struct TrackListView: View {
             TableColumn("Name", value: \.title) { t in
                 HStack {
                     Button {
-                        library.toggleFavorite(t.id)
+                        library.toggleFavouriteTrack(t.url)
                     } label: {
-                        Image(systemName: library.favorites.contains(t.id) ? "star.fill" : "star")
+                        Image(systemName: library.isFavouriteTrack(t.url) ? "star.fill" : "star")
                     }.buttonStyle(.borderless)
                     Text(t.title).lineLimit(1)
                 }
