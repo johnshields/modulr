@@ -318,16 +318,17 @@ enum SpectrumImageRenderer {
         )
     }
 
-    /// Magma-style palette stops: black → purple → magenta → red → orange → yellow → white.
+    /// Magnitude colourmap in the app's RGB family: silence black, then
+    /// blue -> cyan -> green -> yellow -> red as energy rises, white at the
+    /// loudest. Drives both the heatmap and the dB legend.
     private static let paletteStops: [(Float, Float, Float, Float)] = [
         (0.00, 0,   0,   0),
-        (0.15, 40,  10,  80),
-        (0.30, 110, 30,  130),
-        (0.45, 180, 40,  110),
-        (0.60, 230, 70,  60),
-        (0.75, 245, 140, 35),
-        (0.88, 250, 220, 80),
-        (1.00, 255, 255, 240),
+        (0.08, 25,  50,  160),
+        (0.18, 30,  170, 185),
+        (0.34, 45,  200, 70),
+        (0.58, 230, 210, 40),
+        (0.80, 245, 140, 30),
+        (1.00, 235, 35,  45),
     ]
 
     static func palette(_ v: Float) -> (UInt8, UInt8, UInt8) {
