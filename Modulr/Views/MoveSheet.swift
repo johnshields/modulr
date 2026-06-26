@@ -3,9 +3,7 @@ import AppKit
 
 /**
  * MoveSheet
- * Bulk-move modal for a playlist, styled to match AnalyzeSheet. Lets the user
- * pick a destination folder (with the full path shown) and tick exactly which
- * tracks to move, then reports a per-outcome summary once the move completes.
+ * Bulk-move modal: pick a destination folder, select tracks, move, report outcome.
  */
 struct MoveSheet: View {
     let playlistID: UUID

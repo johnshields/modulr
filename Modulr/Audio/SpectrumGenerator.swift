@@ -318,9 +318,6 @@ enum SpectrumImageRenderer {
         )
     }
 
-    /// Magnitude colourmap in the app's RGB family: silence black, then
-    /// blue -> cyan -> green -> yellow -> red as energy rises, white at the
-    /// loudest. Drives both the heatmap and the dB legend.
     private static let paletteStops: [(Float, Float, Float, Float)] = [
         (0.00, 0,   0,   0),
         (0.08, 25,  50,  160),

@@ -543,14 +543,8 @@ class TagIO:
     # Filename derivation that needs tag access
 
     def build_clean_stem(self, path, filename):
-        """Canonical title-only stem.
-        Prefers the TITLE tag when present, falls back to filename derivation.
-        Strips trailing _KEY_BPM, leading NNN_, and any artist tokens.
-
-        Artist removal is driven by the ARTIST tag rather than dash position,
-        so it works for every layout (Artist - Title, Title - Artist,
-        Title - Remixer - Artist, Artist - Title - Remixer) as long as the
-        artist is tagged. Untagged tracks keep whatever the title holds.
+        """Canonical title-only stem from the TITLE tag or filename,
+        stripping trailing _KEY_BPM, leading NNN_, and ARTIST-tag tokens.
         """
         title_tag = self.read_title(path)
         if title_tag:
@@ -573,8 +567,6 @@ class TagIO:
         """Drop slug tokens that match the artist, regardless of dash position."""
         if not artist:
             return title_part
-        # slug() output is lowercase, hyphen-delimited [a-z0-9], so a plain
-        # hyphen split yields the tokens directly.
         artist_tokens = {t for t in slug(artist).split("-") if t}
         if not artist_tokens:
             return title_part

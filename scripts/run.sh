@@ -24,13 +24,16 @@ cat > "$APP/Contents/Info.plist" <<EOF
 <dict>
   <key>CFBundleName</key><string>Modulr</string>
   <key>CFBundleExecutable</key><string>Modulr</string>
+  <key>CFBundleDisplayName</key><string>Modulr</string>
   <key>CFBundleIconFile</key><string>Modulr</string>
   <key>CFBundleIdentifier</key><string>com.fromlost.modulr</string>
-  <key>CFBundleVersion</key><string>0.1</string>
-  <key>CFBundleShortVersionString</key><string>0.1</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+  <key>LSApplicationCategoryType</key><string>public.app-category.music</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSHumanReadableCopyright</key><string>© 2026 fromlost</string>
   <key>CFBundleDocumentTypes</key>
   <array>
     <dict>

@@ -109,13 +109,8 @@ struct WaveformView: View {
                                 let progress = player.duration > 0 ? monitor.currentTime / player.duration : 0
                                 let progressX = size.width * CGFloat(progress)
 
-                                // Rekordbox-style RGB: low->red, mid->green, high->blue.
-                                // Remove the shared (min) component so the dominant
-                                // band shows as a saturated hue instead of pastel.
                                 func bandColor(_ s: WaveSlice, played: Bool) -> Color {
                                     let gamma = 0.85
-                                    // Bass is weighted up and mids down so kick/bass
-                                    // reads red instead of music's mid-heavy green.
                                     var r = pow(Double(s.low), gamma) * 1.7
                                     var g = pow(Double(s.mid), gamma) * 0.8
                                     var b = pow(Double(s.high), gamma) * 1.2
@@ -170,7 +165,6 @@ struct WaveformView: View {
                             if let hx = hoverX {
                                 let ratio = max(0, min(1, hx / contentWidth))
                                 let t = player.duration * Double(ratio)
-                                // y=30 clears corner timers (caption + 8pt padding ≈ 28).
                                 Text(Formatters.mmss(t))
                                     .font(.system(.caption, design: .monospaced))
                                     .padding(.horizontal, 6).padding(.vertical, 2)
@@ -192,7 +186,7 @@ struct WaveformView: View {
                             }
                         }
                     }
-                    } // ScrollViewReader
+                    }
 
                     HStack {
                         Text(Formatters.mmss(monitor.currentTime))

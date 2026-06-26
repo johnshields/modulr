@@ -32,7 +32,6 @@ enum WaveformLoader {
         guard total > 0 else { return [] }
         let bucket = max(1, total / targetCount)
 
-        // One-pole low-pass coefficients: alpha = 1 / (1 + fs / (2π·fc)).
         let fs = Float(format.sampleRate)
         let aLow = onePole(cutoff: 300, sampleRate: fs)
         let aMid = onePole(cutoff: 2800, sampleRate: fs)
@@ -76,9 +75,6 @@ enum WaveformLoader {
         }
         if n > 0 { flush() }
 
-        // Normalise each band against its OWN peak so mids and highs keep their
-        // full range instead of being crushed by the louder bass band — this is
-        // what gives the RGB its colour separation.
         let invL = 1 / lowMax, invM = 1 / midMax, invH = 1 / highMax
         return slices.map {
             WaveSlice(peak: $0.peak,

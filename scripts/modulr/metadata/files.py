@@ -34,7 +34,6 @@ def slug(s):
     return re.sub(r"^\d{2,3}-", "", s)
 
 
-# Leading DJ index, e.g. "044_" — shared so filename helpers stay in step.
 NNN_PREFIX = re.compile(r"^\d{2,4}_")
 
 

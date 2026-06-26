@@ -164,7 +164,6 @@ final class Library: ObservableObject {
         var result = ConsolidateResult()
         let fm = FileManager.default
         let destPath = destination.standardizedFileURL.resolvingSymlinksInPath().path
-        // Restrict to caller-selected URLs when provided, else the whole playlist.
         let members = playlists[idx].trackURLs
         let snapshot = urls.map { picked in members.filter(picked.contains) } ?? members
         for url in snapshot {
