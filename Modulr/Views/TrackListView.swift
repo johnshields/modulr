@@ -183,6 +183,7 @@ struct TrackListView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .tint(Theme.folder)
                 .help("Move selected playlist tracks into one folder")
                 .sheet(isPresented: $showMove) {
                     if let p = library.currentPlaylist {
