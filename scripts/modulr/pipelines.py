@@ -14,7 +14,7 @@ from .mastering.ffmpeg import FfmpegRunner
 from .metadata.files import list_audio, preserve_nnn_prefix
 from .metadata.tags import TagIO
 
-_TAG_EXTS = (".mp3", ".m4a", ".wav", ".mp4", ".aac")
+_TAG_EXTS = (".mp3", ".m4a", ".wav", ".mp4", ".aac", ".aif", ".aiff")
 
 
 class _BasePipeline:
@@ -60,7 +60,7 @@ class AnalysePipeline(_BasePipeline):
         """
         import os
         from .metadata.files import list_audio
-        files = list_audio(folder, exts=(".mp3", ".m4a", ".wav", ".mp4", ".aac"))
+        files = list_audio(folder, exts=_TAG_EXTS)
         if only_untagged:
             files = [p for p in files if not self.tag_io.has_pair(p)]
         log(f"TOTAL: {len(files)}")

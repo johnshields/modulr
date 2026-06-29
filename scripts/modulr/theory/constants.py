@@ -64,4 +64,4 @@ FRAME_MAP = {
     "tracknum": TRCK,
 }
 
-AUDIO_EXT_LOUDNESS = (".mp3", ".m4a", ".wav", ".aac")
+AUDIO_EXT_LOUDNESS = (".mp3", ".m4a", ".wav", ".aac", ".aif", ".aiff")

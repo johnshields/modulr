@@ -11,6 +11,7 @@ import shutil
 import sys
 from abc import ABC, abstractmethod
 
+from mutagen.aiff import AIFF
 from mutagen.mp3 import MP3
 from mutagen.wave import WAVE
 from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm, AtomDataType
@@ -37,7 +38,7 @@ _MP4_KEY_ATOM = "----:com.apple.iTunes:initialkey"
 _MP4_COVER_ATOM = "covr"
 _MP4_TRACKNUM_ATOM = "trkn"
 
-_ID3_EXTS = {"mp3", "wav"}
+_ID3_EXTS = {"mp3", "wav", "aif", "aiff"}
 _MP4_EXTS = {"m4a", "mp4", "aac"}
 
 
@@ -71,11 +72,11 @@ class _Backend(ABC):
 
 
 class _ID3Backend(_Backend):
-    """mp3 + wav. Both wrap ID3 frames through mutagen."""
+    """mp3, wav and aiff. All wrap ID3 frames through mutagen."""
 
     def _open(self, path):
         ext = path.lower().rsplit(".", 1)[-1]
-        cls = MP3 if ext == "mp3" else WAVE
+        cls = MP3 if ext == "mp3" else (AIFF if ext in ("aif", "aiff") else WAVE)
         try:
             audio = cls(path, ID3=ID3) if ext == "mp3" else cls(path)
         except Exception:

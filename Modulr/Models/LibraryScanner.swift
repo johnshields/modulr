@@ -8,7 +8,7 @@ import AVFoundation
  * warnings) and avoids blocking the main thread on large folders.
  */
 enum LibraryScanner {
-    static let supportedExtensions: Set<String> = ["mp3", "m4a", "wav", "aiff", "flac", "aac"]
+    static let supportedExtensions: Set<String> = ["mp3", "m4a", "wav", "aif", "aiff", "flac", "aac"]
 
     static func scan(_ folder: URL) async -> [Track] {
         let fm = FileManager.default

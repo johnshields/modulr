@@ -79,6 +79,9 @@ struct TagEditSheet: View {
             loaded = true
             do {
                 meta = try TagIO.read(track.url)
+                if meta.title.trimmingCharacters(in: .whitespaces).isEmpty {
+                    meta.title = track.url.deletingPathExtension().lastPathComponent
+                }
                 bpmText = meta.bpm.map(String.init) ?? ""
                 yearText = meta.year.map(String.init) ?? ""
             } catch {

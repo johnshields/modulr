@@ -23,7 +23,7 @@ enum TagEditorError: Error {
  * so artwork and other frames are preserved across all supported formats.
  */
 enum TagService {
-    static let supportedExtensions: Set<String> = ["mp3", "m4a", "wav", "mp4", "aac"]
+    static let supportedExtensions: Set<String> = ["mp3", "m4a", "wav", "mp4", "aac", "aif", "aiff"]
 
     static func supportsTags(_ url: URL) -> Bool {
         supportedExtensions.contains(url.pathExtension.lowercased())

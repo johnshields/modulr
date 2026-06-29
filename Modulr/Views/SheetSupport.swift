@@ -8,9 +8,8 @@ import SwiftUI
 enum EnhancementPhase { case preview, working, done, error }
 
 /**
- * Reusable button styles for the enhancement modals so primary / secondary
- * actions stay visually consistent across Convert / Brighten / Loudness and
- * we don't sprinkle the same Label+frame+buttonStyle chant in every file.
+ * Reusable button styles for the enhancement modals, keeping primary and
+ * secondary actions consistent across Convert / Brighten / Loudness.
  */
 struct PrimaryButton: View {
     let title: String
