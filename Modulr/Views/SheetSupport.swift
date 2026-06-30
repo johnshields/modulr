@@ -8,6 +8,50 @@ import SwiftUI
 enum EnhancementPhase { case preview, working, done, error }
 
 /**
+ * SheetLifecycle
+ * Shared open/cancel/finish flow for the enhancement modals, which all reload
+ * the folder on success and discard the in-progress sibling on cancel.
+ */
+struct SheetLifecycle {
+    let library: Library
+    let analyzer: Analyzer
+    let targetURL: URL
+    let dismiss: DismissAction
+
+    func finish() {
+        if let folder = library.currentFolder { library.openFolder(folder) }
+        dismiss()
+    }
+
+    func cancel() {
+        analyzer.cancel()
+        try? FileManager.default.removeItem(at: targetURL)
+        dismiss()
+    }
+
+    func discard() {
+        try? FileManager.default.removeItem(at: targetURL)
+        finish()
+    }
+
+    func closeFromX(phase: EnhancementPhase) {
+        switch phase {
+        case .preview, .error: dismiss()
+        case .working: cancel()
+        case .done: discard()
+        }
+    }
+}
+
+@ViewBuilder
+func sheetTitle(_ title: String, _ subtitle: String) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+        Text(title).font(.headline)
+        Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+    }
+}
+
+/**
  * Reusable button styles for the enhancement modals, keeping primary and
  * secondary actions consistent across Convert / Brighten / Loudness.
  */

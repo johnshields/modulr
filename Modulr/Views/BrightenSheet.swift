@@ -25,6 +25,9 @@ struct BrightenSheet: View {
 
     private var sourceURL: URL { track.url }
     private var targetURL: URL { sourceURL.sibling(suffix: "_bright") }
+    private var lifecycle: SheetLifecycle {
+        .init(library: library, analyzer: analyzer, targetURL: targetURL, dismiss: dismiss)
+    }
     private var targetExists: Bool {
         phase == .preview && FileManager.default.fileExists(atPath: targetURL.path)
     }
@@ -61,7 +64,7 @@ struct BrightenSheet: View {
         .padding(20)
         .frame(width: 380)
         .overlay(alignment: .topTrailing) {
-            MacCloseButton(action: closeFromX)
+            MacCloseButton { lifecycle.closeFromX(phase: phase) }
         }
         .onChange(of: phase) { _, new in
             if new == .done { quality.requestVerdict(targetURL) }
@@ -78,24 +81,17 @@ struct BrightenSheet: View {
             switch phase {
             case .preview:
                 Image(systemName: "sparkles").font(.title2).foregroundStyle(Theme.accent)
-                titleColumn("Brighten Track?", sourceURL.lastPathComponent)
+                sheetTitle("Brighten Track?", sourceURL.lastPathComponent)
             case .working:
                 ProgressView().controlSize(.regular).frame(width: 22, height: 22)
-                titleColumn("Brightening…", sourceURL.lastPathComponent)
+                sheetTitle("Brightening…", sourceURL.lastPathComponent)
             case .done:
                 Image(systemName: "checkmark.circle.fill").font(.title2).foregroundStyle(.green)
-                titleColumn("Brighten Complete", targetURL.lastPathComponent)
+                sheetTitle("Brighten Complete", targetURL.lastPathComponent)
             case .error:
                 Image(systemName: "exclamationmark.triangle.fill").font(.title2).foregroundStyle(.red)
-                titleColumn("Brighten Failed", sourceURL.lastPathComponent)
+                sheetTitle("Brighten Failed", sourceURL.lastPathComponent)
             }
-        }
-    }
-
-    private func titleColumn(_ title: String, _ subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.headline)
-            Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
         }
     }
 
@@ -125,7 +121,7 @@ struct BrightenSheet: View {
 
     private var doneButtons: some View {
         Group {
-            KeepBothButton(action: finishAndDismiss)
+            KeepBothButton(action: { lifecycle.finish() })
             DestructiveButton(title: "Replace Original with Brightened",
                               systemImage: "arrow.triangle.2.circlepath",
                               action: replaceOriginal)
@@ -255,31 +251,6 @@ struct BrightenSheet: View {
             return
         }
         quality.invalidate(source)
-        finishAndDismiss()
-    }
-
-    private func finishAndDismiss() {
-        if let folder = library.currentFolder { library.openFolder(folder) }
-        dismiss()
-    }
-
-    private func cancelRunning() {
-        analyzer.cancel()
-        try? FileManager.default.removeItem(at: targetURL)
-        dismiss()
-    }
-
-    private func discardAndClose() {
-        try? FileManager.default.removeItem(at: targetURL)
-        finishAndDismiss()
-    }
-
-    private func closeFromX() {
-        switch phase {
-        case .preview: dismiss()
-        case .working: cancelRunning()
-        case .done:    discardAndClose()
-        case .error:   dismiss()
-        }
+        lifecycle.finish()
     }
 }

@@ -22,6 +22,9 @@ struct LoudnessSheet: View {
 
     private var sourceURL: URL { track.url }
     private var targetURL: URL { sourceURL.sibling(suffix: "_loud") }
+    private var lifecycle: SheetLifecycle {
+        .init(library: library, analyzer: analyzer, targetURL: targetURL, dismiss: dismiss)
+    }
     private var targetExists: Bool {
         phase == .preview && FileManager.default.fileExists(atPath: targetURL.path)
     }
@@ -57,7 +60,7 @@ struct LoudnessSheet: View {
         .padding(20)
         .frame(width: 380)
         .overlay(alignment: .topTrailing) {
-            MacCloseButton(action: closeFromX)
+            MacCloseButton { lifecycle.closeFromX(phase: phase) }
         }
         .task { library.reloadCurrent() }
     }
@@ -69,28 +72,22 @@ struct LoudnessSheet: View {
             case .preview:
                 Image(systemName: "speaker.wave.3.fill")
                     .font(.title2).foregroundStyle(Theme.accent)
-                titleColumn("Normalise Loudness?", sourceURL.lastPathComponent)
+                sheetTitle("Normalise Loudness?", sourceURL.lastPathComponent)
             case .working:
                 ProgressView().controlSize(.regular).frame(width: 22, height: 22)
-                titleColumn("Boosting…", sourceURL.lastPathComponent)
+                sheetTitle("Boosting…", sourceURL.lastPathComponent)
             case .done:
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2).foregroundStyle(.green)
-                titleColumn("Boost Complete", targetURL.lastPathComponent)
+                sheetTitle("Boost Complete", targetURL.lastPathComponent)
             case .error:
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.title2).foregroundStyle(.red)
-                titleColumn("Boost Failed", sourceURL.lastPathComponent)
+                sheetTitle("Boost Failed", sourceURL.lastPathComponent)
             }
         }
     }
 
-    private func titleColumn(_ title: String, _ subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.headline)
-            Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-        }
-    }
 
     private var previewButtons: some View {
         Group {
@@ -114,7 +111,7 @@ struct LoudnessSheet: View {
 
     private var doneButtons: some View {
         Group {
-            KeepBothButton(action: finishAndDismiss)
+            KeepBothButton(action: { lifecycle.finish() })
             DestructiveButton(title: "Replace Original with Boosted",
                               systemImage: "arrow.triangle.2.circlepath",
                               action: replaceOriginal)
@@ -171,31 +168,6 @@ private func replaceOriginal() {
             return
         }
         quality.invalidate(source)
-        finishAndDismiss()
-    }
-
-    private func finishAndDismiss() {
-        if let folder = library.currentFolder { library.openFolder(folder) }
-        dismiss()
-    }
-
-    private func cancelRunning() {
-        analyzer.cancel()
-        try? FileManager.default.removeItem(at: targetURL)
-        dismiss()
-    }
-
-    private func discardAndClose() {
-        try? FileManager.default.removeItem(at: targetURL)
-        finishAndDismiss()
-    }
-
-    private func closeFromX() {
-        switch phase {
-        case .preview: dismiss()
-        case .working: cancelRunning()
-        case .done:    discardAndClose()
-        case .error:   dismiss()
-        }
+        lifecycle.finish()
     }
 }

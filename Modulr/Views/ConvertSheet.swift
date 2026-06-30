@@ -24,6 +24,9 @@ struct ConvertSheet: View {
 
     private var sourceURL: URL { track.url }
     private var targetURL: URL { sourceURL.changingExtension(to: "mp3") }
+    private var lifecycle: SheetLifecycle {
+        .init(library: library, analyzer: analyzer, targetURL: targetURL, dismiss: dismiss)
+    }
     private var targetExists: Bool {
         phase == .preview && FileManager.default.fileExists(atPath: targetURL.path)
     }
@@ -59,7 +62,7 @@ struct ConvertSheet: View {
         .padding(20)
         .frame(width: 380)
         .overlay(alignment: .topTrailing) {
-            MacCloseButton(action: closeFromX)
+            MacCloseButton { lifecycle.closeFromX(phase: phase) }
         }
         .onChange(of: phase) { _, new in
             if new == .done { quality.requestVerdict(targetURL) }
@@ -77,26 +80,19 @@ struct ConvertSheet: View {
             case .preview:
                 Image(systemName: "waveform.path.badge.plus")
                     .font(.title2).foregroundStyle(Theme.accent)
-                titleColumn("Convert to MP3?", sourceURL.lastPathComponent)
+                sheetTitle("Convert to MP3?", sourceURL.lastPathComponent)
             case .working:
                 ProgressView().controlSize(.regular).frame(width: 22, height: 22)
-                titleColumn("Converting…", sourceURL.lastPathComponent)
+                sheetTitle("Converting…", sourceURL.lastPathComponent)
             case .done:
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2).foregroundStyle(.green)
-                titleColumn("Conversion Complete", targetURL.lastPathComponent)
+                sheetTitle("Conversion Complete", targetURL.lastPathComponent)
             case .error:
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.title2).foregroundStyle(.red)
-                titleColumn("Convert Failed", sourceURL.lastPathComponent)
+                sheetTitle("Convert Failed", sourceURL.lastPathComponent)
             }
-        }
-    }
-
-    private func titleColumn(_ title: String, _ subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.headline)
-            Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
         }
     }
 
@@ -187,33 +183,8 @@ struct ConvertSheet: View {
         // Keep playlist memberships pointing at the new MP3 so converting a
         // WAV/M4A track does not silently drop it from every playlist.
         library.updatePlaylistURL(from: sourceURL, to: targetURL)
-        finishAndDismiss()
+        lifecycle.finish()
     }
 
-    private func keepBothAndClose() { finishAndDismiss() }
-
-    private func discardAndClose() {
-        try? FileManager.default.removeItem(at: targetURL)
-        finishAndDismiss()
-    }
-
-    private func cancelRunning() {
-        analyzer.cancel()
-        try? FileManager.default.removeItem(at: targetURL)
-        dismiss()
-    }
-
-    private func finishAndDismiss() {
-        if let folder = library.currentFolder { library.openFolder(folder) }
-        dismiss()
-    }
-
-    private func closeFromX() {
-        switch phase {
-        case .preview: dismiss()
-        case .working: cancelRunning()
-        case .done:    discardAndClose()
-        case .error:   dismiss()
-        }
-    }
+    private func keepBothAndClose() { lifecycle.finish() }
 }

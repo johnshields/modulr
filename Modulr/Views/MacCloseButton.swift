@@ -4,8 +4,8 @@ import SwiftUI
  * MacCloseButton
  * Apple traffic-light style red dot used in every modal so closing a sheet
  * matches the native window-close affordance. Sits top-left, ~12pt diameter,
- * reveals the ✕ glyph on hover. `.keyboardShortcut(.cancelAction)` so ESC
- * still works.
+ * reveals an xmark glyph on hover. `.keyboardShortcut(.cancelAction)` keeps
+ * ESC working.
  */
 struct MacCloseButton: View {
     let action: () -> Void
