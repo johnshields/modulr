@@ -8,8 +8,8 @@ import AVFoundation
  *   - `generate(url:)` -- full time x frequency dB matrix (SpectrumSheet).
  *   - `collectBinRanges(url:ranges:sampleStride:)` -- streams the STFT and
  *     keeps only the requested bins (low-memory band sampling).
- *   - `findCutoff(url:)` -- averages magnitudes across time, then sweeps from
- *     Nyquist down for the cliff used by QualityCache.
+ *   - `findCutoff(url:)` -- averages magnitudes across time, then finds the hard
+ *     lossy shelf used by QualityCache.
  * All three share `iterateSTFT`, so FFT params stay consistent: 4096-sample
  * Hann window, 50% overlap, dB-clamped to [minDB, maxDB].
  */
@@ -70,17 +70,10 @@ enum SpectrumGenerator {
         var values: [Float] = []
     }
 
-    /// Detect the spectral cutoff frequency (Hz) using the fakeflac-style
-    /// cliff sweep: average magnitudes across time, smooth, then walk from
-    /// Nyquist down to the first 200 Hz window with a >= 6 dB drop. Returns
-    /// Nyquist when no cliff is found (genuine full-bandwidth source).
-    /// Refs: mevdschee/fakeflac and Spectro's "how-to-detect-fake-lossless".
+    /// Detect the spectral cutoff (Hz): average across time, smooth, find the hard shelf.
     struct CutoffResult { let cutoffHz: Double; let sampleRate: Double }
 
-    static func findCutoff(url: URL,
-                           windowStride: Int = 4,
-                           slopeWindowHz: Double = 200,
-                           slopeMinDropDB: Float = 6) async throws -> CutoffResult {
+    static func findCutoff(url: URL, windowStride: Int = 4) async throws -> CutoffResult {
         let pcm = try loadMonoPCM(url: url)
         let bins = fftSize / 2
         var accum = [Float](repeating: 0, count: bins)
@@ -97,34 +90,30 @@ enum SpectrumGenerator {
 
         let smoothed = Self.smoothSpectrum(avg)
         avg.removeAll()
-        let cutoff = Self.sweepForCliff(
-            spectrum: smoothed,
-            sampleRate: pcm.sampleRate,
-            slopeWindowHz: slopeWindowHz,
-            slopeMinDropDB: slopeMinDropDB
-        )
+        let cutoff = Self.detectCutoff(spectrum: smoothed, sampleRate: pcm.sampleRate)
         return CutoffResult(cutoffHz: cutoff, sampleRate: pcm.sampleRate)
     }
 
-    /// Cliff sweep shared by `findCutoff` and `SpectrumAnalysis.verdict(spectrum:)`.
-    /// Takes an averaged + smoothed magnitude spectrum and returns the first
-    /// bin (from Nyquist down) where the 200 Hz window below is ≥ 6 dB louder.
-    static func sweepForCliff(spectrum: [Float], sampleRate: Double,
-                              slopeWindowHz: Double = 200,
-                              slopeMinDropDB: Float = 6,
-                              minCutoffHz: Double = 1000) -> Double {
+    /// Highest hard shelf (>= 20 dB drop over 1 kHz into a flat floor), else Nyquist.
+    static func detectCutoff(spectrum: [Float], sampleRate: Double) -> Double {
         let bins = spectrum.count
-        guard bins > 4 else { return sampleRate / 2 }
+        guard bins > 16 else { return sampleRate / 2 }
         let nyquist = sampleRate / 2
         let hzPerBin = nyquist / Double(bins - 1)
-        let slopeWindowBins = max(2, Int(slopeWindowHz / hzPerBin))
-        let floorBin = max(slopeWindowBins, Int(minCutoffHz / hzPerBin))
-        for b in stride(from: bins - 1, through: floorBin, by: -1) {
-            if spectrum[b - slopeWindowBins] - spectrum[b] >= slopeMinDropDB {
-                return Double(b) * hzPerBin
-            }
+        let band = max(3, Int(1000 / hzPerBin))
+        var b = bins - 1 - band
+        while b > band {
+            let signal = median(spectrum[(b - band)..<b])
+            let floor = median(spectrum[b..<(b + band)])
+            if signal - floor >= 20 { return Double(b) * hzPerBin }
+            b -= 1
         }
         return nyquist
+    }
+
+    private static func median(_ slice: ArraySlice<Float>) -> Float {
+        let sorted = slice.sorted()
+        return sorted[sorted.count / 2]
     }
 
     /// Public so SpectrumAnalysis can reuse the same smoothing the cache path uses.

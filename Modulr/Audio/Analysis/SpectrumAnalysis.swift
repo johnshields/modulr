@@ -44,23 +44,16 @@ struct QualityVerdict: Hashable {
 
 /**
  * SpectrumAnalysis
- * Cutoff-driven verdict modelled after fakeflac, Lossless Audio Checker and
- * Spectro. Thresholds in kHz:
+ * Quality verdict from the detected cutoff. Content reaching Nyquist is Crisp
+ * (full bandwidth); a hard lossy shelf maps to a tier by its frequency in kHz:
  *
- *   >= 20.5  -> Crisp   (genuine lossless or 320 CBR LAME with no lowpass)
+ *   Nyquist  -> Crisp   (no lossy shelf)
  *   >= 19.5  -> Punchy  (320 MP3 or transparent AAC >= 256 kbps)
- *   >= 17.5  -> Muddy   (192-256 MP3, FDK-AAC at default 17 kHz)
- *   >= 15.5  -> Cooked  (128-192 MP3 or low-rate AAC)
- *   <  15.5  -> Cooked  (<= 128 kbps source)
+ *   >= 17.5  -> Muddy   (192-256 kbps)
+ *   >= 15.5  -> Cooked  (128-192 kbps)
+ *   <  15.5  -> Cooked  (<= 128 kbps)
  *
- * AAC / m4a containers get a 1.5 kHz leniency offset because FDK-AAC plateaus
- * at 17 kHz at iTunes-radio rates.
- *
- * Refs:
- *   - mevdschee/fakeflac (cliff slope methodology)
- *   - getspectro.app blog "how-to-detect-fake-lossless"
- *   - Hennequin et al., ICASSP 2017 (Deezer Research)
- *   - Hydrogenaudio FDK-AAC and LAME wikis
+ * AAC / m4a containers get a 1.5 kHz leniency offset.
  */
 enum SpectrumAnalysis {
     /// Cutoff floor for the healthy-top check used by BrightenSheet.
@@ -70,8 +63,7 @@ enum SpectrumAnalysis {
     private static let aacExtensions: Set<String> = ["m4a", "aac", "mp4"]
     private static let aacOffsetHz: Double = 1_500
 
-    /// Tier minimums (Hz) for lossless/generic containers.
-    private static let crispMinHz: Double = 20_500
+    /// Shelf-frequency minimums (Hz) mapping a lossy ceiling to a codec tier.
     private static let punchyMinHz: Double = 19_500
     private static let muddyMinHz: Double = 17_500
     private static let cookedMinHz: Double = 15_500
@@ -81,9 +73,8 @@ enum SpectrumAnalysis {
         let isAAC = sourceURL.map { aacExtensions.contains($0.pathExtension.lowercased()) } ?? false
         let offset: Double = isAAC ? aacOffsetHz : 0
 
-        let crisp  = crispMinHz  - offset
         let punchy = punchyMinHz - offset
-        let muddy  = muddyMinHz  - offset
+        let muddy  = muddyMinHz - offset
         let cooked = cookedMinHz - offset
 
         func build(_ label: String, _ color: Color, _ detail: String) -> QualityVerdict {
@@ -91,34 +82,34 @@ enum SpectrumAnalysis {
                            cutoffHz: cutoffHz, sampleRateHz: sampleRate)
         }
 
-        if cutoffHz >= crisp {
+        // Content reaching Nyquist has no lossy shelf: genuine full bandwidth.
+        if cutoffHz >= sampleRate / 2 - 500 {
             return build("Crisp",
                          Color(red: 0.40, green: 0.95, blue: 0.55),
-                         "Cutoff near Nyquist — full-bandwidth source.")
+                         "Full bandwidth to Nyquist.")
         }
+        let shelf = "Hard shelf at \(Self.kHz(cutoffHz))"
         if cutoffHz >= punchy {
             return build("Punchy",
                          Color(red: 0.65, green: 0.85, blue: 0.40),
-                         "Cutoff ≈ \(Self.kHz(cutoffHz)) — 320 MP3 or transparent AAC.")
+                         "\(shelf). 320 MP3 or transparent AAC.")
         }
         if cutoffHz >= muddy {
             return build("Muddy",
                          Color(red: 0.95, green: 0.80, blue: 0.25),
-                         "Cutoff ≈ \(Self.kHz(cutoffHz)) — likely 192–256 kbps MP3 / AAC.")
+                         "\(shelf). Likely 192 to 256 kbps.")
         }
         if cutoffHz >= cooked {
             return build("Cooked",
                          Color(red: 0.95, green: 0.35, blue: 0.30),
-                         "Cutoff ≈ \(Self.kHz(cutoffHz)) — likely 128–192 kbps source.")
+                         "\(shelf). Likely 128 to 192 kbps.")
         }
         return build("Cooked",
                      Color(red: 0.95, green: 0.35, blue: 0.30),
-                     "Cutoff ≈ \(Self.kHz(cutoffHz)) — likely ≤ 128 kbps source.")
+                     "\(shelf). Likely 128 kbps or below.")
     }
 
-    /// Verdict from an already-rendered Spectrum (SpectrumSheet path). Uses
-    /// the same smoothing + sweep helpers as `SpectrumGenerator.findCutoff`
-    /// so the cache and the sheet agree on the cliff.
+    /// Verdict from an already-rendered Spectrum, using the same cutoff detection as findCutoff.
     static func verdict(spectrum: SpectrumGenerator.Spectrum,
                         sourceURL: URL? = nil) -> QualityVerdict {
         guard spectrum.timeColumns > 0, spectrum.freqBins > 1 else { return .unknown }
@@ -133,7 +124,7 @@ enum SpectrumAnalysis {
         for b in 0..<spectrum.freqBins { avg[b] /= denom }
 
         let smoothed = SpectrumGenerator.smoothSpectrum(avg)
-        let cutoff = SpectrumGenerator.sweepForCliff(
+        let cutoff = SpectrumGenerator.detectCutoff(
             spectrum: smoothed, sampleRate: spectrum.sampleRate
         )
         return verdict(cutoffHz: cutoff, sampleRate: spectrum.sampleRate, sourceURL: sourceURL)
