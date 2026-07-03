@@ -30,6 +30,12 @@ struct Track: Identifiable, Hashable {
     var trackNumberSort: Int { trackNumber ?? Int.max }
     var trackNumberDisplay: String { trackNumber.map(String.init) ?? "" }
 
+    /// True when the filename already ends with the DJ-format `_KEY_BPM` suffix.
+    var isDJFormatted: Bool {
+        let stem = url.deletingPathExtension().lastPathComponent
+        return stem.range(of: #"_[A-G][#b]?m?_\d{2,3}$"#, options: .regularExpression) != nil
+    }
+
     var fileType: String { url.pathExtension.uppercased() }
     var typeAndBitrate: String {
         guard let kbps = bitrate else { return fileType }

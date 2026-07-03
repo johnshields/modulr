@@ -20,6 +20,7 @@ struct TrackListView: View {
     @State private var deleteTrack: Track?
     @State private var search = ""
     @State private var unanalysedOnly = false
+    @State private var unformattedOnly = false
     @State private var showMove = false
 
     @State private var editItems: [Track] = []
@@ -36,6 +37,9 @@ struct TrackListView: View {
         if unanalysedOnly {
             pool = pool.filter { $0.bpm == nil || $0.key == nil }
         }
+        if unformattedOnly {
+            pool = pool.filter { !$0.isDJFormatted }
+        }
         guard !q.isEmpty else { return pool }
         return pool.filter { t in
             if t.title.lowercased().contains(q) { return true }
@@ -51,6 +55,18 @@ struct TrackListView: View {
 
     private var unanalysedCount: Int {
         library.tracks.filter { $0.bpm == nil || $0.key == nil }.count
+    }
+
+    private var unformattedCount: Int {
+        library.tracks.filter { !$0.isDJFormatted }.count
+    }
+
+    private var unanalysedURLs: [URL] {
+        library.tracks.filter { $0.bpm == nil || $0.key == nil }.map(\.url)
+    }
+
+    private var unformattedURLs: [URL] {
+        library.tracks.filter { !$0.isDJFormatted }.map(\.url)
     }
 
     private var currentKey: String? {
@@ -80,6 +96,9 @@ struct TrackListView: View {
         }
         .onChange(of: unanalysedCount) { _, count in
             if unanalysedOnly && count == 0 { unanalysedOnly = false }
+        }
+        .onChange(of: unformattedCount) { _, count in
+            if unformattedOnly && count == 0 { unformattedOnly = false }
         }
         .sheet(item: $tagTrack) { t in TagEditSheet(track: t).environmentObject(library) }
         .sheet(item: $spectrumTrack) { t in SpectrumSheet(trackURL: t.url) }
@@ -209,19 +228,38 @@ struct TrackListView: View {
 
                 if unanalysedOnly && unanalysedCount > 0 {
                     Button {
-                        guard let cur = library.currentFolder else { return }
-                        analyzer.analyzeFolder(cur,
-                                               rename: analyzer.renameAfter,
-                                               onlyUntagged: true) {}
+                        analyzer.prepareFiles(unanalysedURLs) { library.reloadCurrent() }
                         showAnalyze = true
                     } label: {
-                        Label("Analyse \(unanalysedCount)",
-                              systemImage: "waveform.badge.magnifyingglass")
+                        Label("Analyse \(unanalysedCount)", systemImage: "waveform.badge.magnifyingglass")
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.color(for: library.source))
                     .controlSize(.small)
-                    .help("Detect BPM and key for the un-analysed tracks in this folder")
+                    .help("Detect BPM and key for these tracks, then rename to DJ format.")
+                }
+
+                Toggle(isOn: $unformattedOnly) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "textformat.abc")
+                        Text("Unformatted\(unformattedCount > 0 ? " (\(unformattedCount))" : "")")
+                    }
+                }
+                .toggleStyle(.button)
+                .controlSize(.small)
+                .help("Show only tracks not in DJ format")
+
+                if unformattedOnly && unformattedCount > 0 {
+                    Button {
+                        analyzer.prepareFiles(unformattedURLs) { library.reloadCurrent() }
+                        showAnalyze = true
+                    } label: {
+                        Label("Format \(unformattedCount)", systemImage: "wand.and.stars")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.color(for: library.source))
+                    .controlSize(.small)
+                    .help("Rename to DJ format. Untagged tracks are analysed first; existing BPM and key are kept.")
                 }
             }
 
@@ -383,9 +421,19 @@ struct TrackListView: View {
                     Text(a).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
+            HStack(spacing: 8) {
+                if let bpm = t.bpm { Text("\(bpm)").font(.caption).foregroundStyle(.secondary) }
+                if let k = t.key {
+                    let musical = KeyNormalizer.toMusical(k)
+                    let isCompat = compatKeys.contains(musical)
+                    Text(musical)
+                        .font(.caption)
+                        .fontWeight(isCompat ? .semibold : .regular)
+                        .foregroundStyle(isCompat ? Theme.keyMatch : .secondary)
+                }
+            }
+            .padding(.leading, 12)
             Spacer()
-            if let bpm = t.bpm { Text("\(bpm)").font(.caption).foregroundStyle(.secondary) }
-            if let k = t.key { Text(KeyNormalizer.toMusical(k)).font(.caption).foregroundStyle(.secondary) }
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
         .background(
@@ -402,9 +450,11 @@ struct TrackListView: View {
         Button { tagTrack = t } label: { Label("Edit Track Info…", systemImage: "info.circle") }
             .disabled(!TagIO.supportsTags(t.url))
         Button {
-            analyzer.analyzeFile(t.url, rename: analyzer.renameAfter) {}
+            analyzer.analyzeFile(t.url, rename: analyzer.renameAfter || t.isDJFormatted) {
+                library.reloadCurrent()
+            }
             showAnalyze = true
-        } label: { Label("Analyse BPM/Key", systemImage: "waveform.badge.magnifyingglass") }
+        } label: { Label("Re-analyse BPM/Key", systemImage: "waveform.badge.magnifyingglass") }
             .disabled(!TagIO.supportsTags(t.url))
         Button { spectrumTrack = t } label: {
             Label("Show Spectrum", systemImage: "waveform.path")

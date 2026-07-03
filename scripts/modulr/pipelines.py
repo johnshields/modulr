@@ -94,11 +94,22 @@ class AnalysePipeline(_BasePipeline):
         return musical, bpm
 
     def _rename_to_dj(self, path, filename, musical, bpm):
-        new_name = self.tag_io.derived_dj_name(path, musical, bpm)
-        new_path = os.path.join(os.path.dirname(path), new_name)
+        directory = os.path.dirname(path)
+        ext = os.path.splitext(filename)[1].lower() or ".mp3"
+        clean = self.tag_io.build_clean_stem(path, filename)
+        suffix = f"_{musical}_{bpm}"
+        new_name = f"{clean}{suffix}{ext}"
+        new_path = os.path.join(directory, new_name)
         if new_path == path:
             self.tag_io.sync_title_to_filename(path)
-        elif self.tag_io.rename_and_sync_title(path, new_path):
+            return
+        # Disambiguate a clashing target while keeping the _KEY_BPM suffix intact.
+        n = 2
+        while os.path.exists(new_path):
+            new_name = f"{clean}-{n}{suffix}{ext}"
+            new_path = os.path.join(directory, new_name)
+            n += 1
+        if self.tag_io.rename_and_sync_title(path, new_path):
             log(f"RENAMED: {filename} -> {new_name}")
 
 

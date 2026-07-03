@@ -552,6 +552,9 @@ class TagIO:
             title_part = slug(title_tag)
         else:
             stem, _ext = os.path.splitext(filename)
+            halves = re.split(r"\s[-–—]\s", stem, maxsplit=1)
+            if len(halves) == 2:
+                stem = halves[1]
             parts = stem.split("_")
             while (len(parts) >= 3
                    and parts[-1].isdigit()
@@ -561,7 +564,8 @@ class TagIO:
                 parts = parts[1:]
             title_part = slug(parts[0]) if parts else ""
 
-        return self._strip_artist_tokens(title_part, self.read_artist(path))
+        stripped = self._strip_artist_tokens(title_part, self.read_artist(path))
+        return self._strip_edition(stripped)
 
     @staticmethod
     def _strip_artist_tokens(title_part, artist):
@@ -574,6 +578,21 @@ class TagIO:
         tokens = title_part.split("-")
         cleaned = "-".join(t for t in tokens if t and t not in artist_tokens)
         return cleaned or title_part
+
+    _EDITIONS = sorted([
+        "extended-mix", "extended-version", "extended-edit",
+        "original-mix", "original-version", "original-edit",
+        "radio-edit", "radio-version", "radio-mix",
+        "club-mix", "club-edit", "album-version", "single-version",
+    ], key=len, reverse=True)
+
+    @classmethod
+    def _strip_edition(cls, stem):
+        """Drop a trailing generic edition (Original Mix, Extended Version, ...)."""
+        for ed in cls._EDITIONS:
+            if stem != ed and stem.endswith("-" + ed):
+                return stem[: -len(ed) - 1]
+        return stem
 
     def derived_dj_name(self, path, key, bpm, keep_numbers=False):
         """Canonical NNN_stem_KEY_BPM<ext> name, preserving original extension."""

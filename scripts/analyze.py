@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore")
 # Allow `python scripts/analyze.py ...` from project root regardless of cwd.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from modulr.logger import log_error
+from modulr.logger import log, log_done, log_error
 from modulr.mastering.loudness import LoudnessNormaliser
 from modulr.mastering.silence import SilenceTrimmer
 from modulr.mastering.tweak import TempoPitchBaker
@@ -31,6 +31,8 @@ def _build_parser():
     p = argparse.ArgumentParser()
     p.add_argument("--folder")
     p.add_argument("--file")
+    p.add_argument("--prepare-files", nargs="+", metavar="FILE",
+                   help="Analyse untagged, keep tagged, then rename each to DJ format")
     p.add_argument("--rename", action="store_true")
     p.add_argument("--only-untagged", action="store_true",
                    help="With --folder, skip tracks that already have BPM and key")
@@ -105,6 +107,14 @@ def main():
     args = _build_parser().parse_args()
     tag_io = TagIO()
 
+    if args.prepare_files:
+        pipeline = AnalysePipeline()
+        files = args.prepare_files
+        log(f"TOTAL: {len(files)}")
+        for i, f in enumerate(files, 1):
+            pipeline.run_one(f, True, idx=i, total=len(files), allow_skip=True)
+        log_done()
+        return
     if args.normalize:
         LoudnessNormaliser().match_folder(args.normalize, apply=args.apply); return
     if args.normalize_file:

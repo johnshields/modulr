@@ -67,6 +67,18 @@ struct SidebarView: View {
                     }
                 } label: { sectionLabel("Playlists") }
             }
+            .listStyle(.sidebar)
+        }
+        .frame(minWidth: 220)
+        // Each alert sits on its own anchor: multiple .alert modifiers on one
+        // view collapse to a single presentation, silently dropping the rest.
+        .background(newPlaylistAlertAnchor)
+        .background(renameAlertAnchor)
+        .background(moveCompleteAlertAnchor)
+    }
+
+    private var newPlaylistAlertAnchor: some View {
+        Color.clear
             .alert("New Playlist", isPresented: $showNewPlaylistAlert) {
                 TextField("Name", text: $newPlaylistName)
                 Button("Create") {
@@ -76,15 +88,10 @@ struct SidebarView: View {
                 .disabled(newPlaylistName.trimmingCharacters(in: .whitespaces).isEmpty)
                 Button("Cancel", role: .cancel) {}
             }
-            .alert("Move Complete",
-                   isPresented: Binding(
-                    get: { consolidateSummary != nil },
-                    set: { if !$0 { consolidateSummary = nil } }
-                   )) {
-                Button("OK", role: .cancel) { consolidateSummary = nil }
-            } message: {
-                Text(consolidateSummary ?? "")
-            }
+    }
+
+    private var renameAlertAnchor: some View {
+        Color.clear
             .alert("Rename Playlist",
                    isPresented: Binding(
                     get: { renamingPlaylist != nil },
@@ -97,11 +104,22 @@ struct SidebarView: View {
                     }
                     renamingPlaylist = nil
                 }
+                .disabled(renamingName.trimmingCharacters(in: .whitespaces).isEmpty)
                 Button("Cancel", role: .cancel) { renamingPlaylist = nil }
             }
-            .listStyle(.sidebar)
-        }
-        .frame(minWidth: 220)
+    }
+
+    private var moveCompleteAlertAnchor: some View {
+        Color.clear
+            .alert("Move Complete",
+                   isPresented: Binding(
+                    get: { consolidateSummary != nil },
+                    set: { if !$0 { consolidateSummary = nil } }
+                   )) {
+                Button("OK", role: .cancel) { consolidateSummary = nil }
+            } message: {
+                Text(consolidateSummary ?? "")
+            }
     }
 
     private func sectionLabel(_ title: String) -> some View {

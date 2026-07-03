@@ -113,17 +113,10 @@ enum SpectrumAnalysis {
     static func verdict(spectrum: SpectrumGenerator.Spectrum,
                         sourceURL: URL? = nil) -> QualityVerdict {
         guard spectrum.timeColumns > 0, spectrum.freqBins > 1 else { return .unknown }
-        var avg = [Float](repeating: 0, count: spectrum.freqBins)
-        for col in 0..<spectrum.timeColumns {
-            let base = col * spectrum.freqBins
-            for b in 0..<spectrum.freqBins {
-                avg[b] += spectrum.data[base + b]
-            }
-        }
-        let denom = Float(spectrum.timeColumns)
-        for b in 0..<spectrum.freqBins { avg[b] /= denom }
-
-        let smoothed = SpectrumGenerator.smoothSpectrum(avg)
+        let profile = SpectrumGenerator.percentileProfile(
+            data: spectrum.data, columns: spectrum.timeColumns, bins: spectrum.freqBins
+        )
+        let smoothed = SpectrumGenerator.smoothSpectrum(profile)
         let cutoff = SpectrumGenerator.detectCutoff(
             spectrum: smoothed, sampleRate: spectrum.sampleRate
         )

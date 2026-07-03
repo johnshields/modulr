@@ -48,11 +48,15 @@ final class Library: ObservableObject {
     }
 
     func renamePlaylist(id: UUID, to newName: String) {
-        guard let idx = playlists.firstIndex(where: { $0.id == id }) else { return }
-        playlists[idx].name = newName
+        let trimmed = newName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty,
+              let idx = playlists.firstIndex(where: { $0.id == id }) else { return }
+        playlists[idx].name = trimmed
         playlists.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        playlistStore.save(playlists[idx])
-        if currentPlaylist?.id == id { currentPlaylist = playlists[idx] }
+        // Re-find after the sort: the previous index now points at a different playlist.
+        guard let renamed = playlists.first(where: { $0.id == id }) else { return }
+        playlistStore.save(renamed)
+        if currentPlaylist?.id == id { currentPlaylist = renamed }
     }
 
     func deletePlaylist(id: UUID) {

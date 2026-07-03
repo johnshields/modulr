@@ -136,6 +136,11 @@ final class Analyzer: ObservableObject {
         run(args: ["--sync-filename", url.path], completion: completion)
     }
 
+    func prepareFiles(_ urls: [URL], completion: @escaping () -> Void) {
+        mode = .analyse
+        run(args: ["--prepare-files"] + urls.map(\.path), completion: completion)
+    }
+
     func bakeTweak(_ url: URL, rate: Float, cents: Float, bpm: Int?, key: String?, completion: @escaping () -> Void) {
         mode = .normalize
         let args = [
@@ -157,6 +162,7 @@ final class Analyzer: ObservableObject {
     private func run(args: [String], completion: @escaping () -> Void) {
         running = true
         log = []
+        current = ""
         progress = 0
         totalCount = 0
 

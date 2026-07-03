@@ -82,6 +82,14 @@ struct TransportView: View {
                 Section("Cleanup") {
                     Button {
                         guard let cur = library.currentFolder else { return }
+                        analyzer.syncFilenameToTags(cur) {}
+                        showAnalyze = true
+                    } label: {
+                        Label("Rename to DJ Format", systemImage: "textformat.abc")
+                    }
+                    .disabled(library.currentFolder == nil)
+                    Button {
+                        guard let cur = library.currentFolder else { return }
                         analyzer.resetFolder(cur) {}
                         showAnalyze = true
                     } label: {

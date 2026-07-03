@@ -76,22 +76,36 @@ enum SpectrumGenerator {
     static func findCutoff(url: URL, windowStride: Int = 4) async throws -> CutoffResult {
         let pcm = try loadMonoPCM(url: url)
         let bins = fftSize / 2
-        var accum = [Float](repeating: 0, count: bins)
+        var flat: [Float] = []
         var windowCount = 0
 
         try iterateSTFT(mono: pcm.mono, frames: pcm.frames, stride: windowStride) { _, magsDB in
-            for b in 0..<bins { accum[b] += magsDB[b] }
+            flat.append(contentsOf: magsDB)
             windowCount += 1
         }
         guard windowCount > 0 else {
             return CutoffResult(cutoffHz: pcm.sampleRate / 2, sampleRate: pcm.sampleRate)
         }
-        var avg = accum.map { $0 / Float(windowCount) }
 
-        let smoothed = Self.smoothSpectrum(avg)
-        avg.removeAll()
+        let profile = Self.percentileProfile(data: flat, columns: windowCount, bins: bins)
+        let smoothed = Self.smoothSpectrum(profile)
         let cutoff = Self.detectCutoff(spectrum: smoothed, sampleRate: pcm.sampleRate)
         return CutoffResult(cutoffHz: cutoff, sampleRate: pcm.sampleRate)
+    }
+
+    /// Per-bin 90th percentile over time: keeps frequent transients, drops rare click spikes.
+    static func percentileProfile(data: [Float], columns: Int, bins: Int,
+                                  pct: Double = 0.90) -> [Float] {
+        guard columns > 0 else { return [Float](repeating: minDB, count: bins) }
+        var out = [Float](repeating: minDB, count: bins)
+        var col = [Float](repeating: 0, count: columns)
+        let idx = Int(Double(columns - 1) * pct)
+        for b in 0..<bins {
+            for c in 0..<columns { col[c] = data[c * bins + b] }
+            col.sort()
+            out[b] = col[idx]
+        }
+        return out
     }
 
     /// Highest hard shelf (>= 20 dB drop over 1 kHz into a flat floor), else Nyquist.
