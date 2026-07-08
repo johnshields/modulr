@@ -547,9 +547,17 @@ class TagIO:
         """Canonical title-only stem from the TITLE tag or filename,
         stripping trailing _KEY_BPM, leading NNN_, and ARTIST-tag tokens.
         """
+        artist = self.read_artist(path)
         title_tag = self.read_title(path)
         if title_tag:
-            title_part = slug(title_tag)
+            raw = title_tag
+            # No artist tag but title holds "Artist - Title" (SoundCloud, Beatport):
+            # drop the leading artist half so it does not survive into the stem.
+            if not artist:
+                halves = re.split(r"\s[-–—]\s", raw, maxsplit=1)
+                if len(halves) == 2:
+                    raw = halves[1]
+            title_part = slug(raw)
         else:
             stem, _ext = os.path.splitext(filename)
             halves = re.split(r"\s[-–—]\s", stem, maxsplit=1)
@@ -564,8 +572,17 @@ class TagIO:
                 parts = parts[1:]
             title_part = slug(parts[0]) if parts else ""
 
-        stripped = self._strip_artist_tokens(title_part, self.read_artist(path))
-        return self._strip_edition(stripped)
+        stripped = self._strip_artist_tokens(title_part, artist)
+        stripped = self._strip_edition(stripped)
+        # Keep a named remixer even when it lives only in the filename, not the title tag:
+        # multiple remixes of one track must not collapse to the same stem.
+        phrase = (self._extract_remix_phrase(title_tag or "")
+                  or self._extract_remix_phrase(os.path.splitext(filename)[0]))
+        if phrase:
+            pslug = slug(phrase)
+            if pslug and pslug not in stripped:
+                stripped = f"{stripped}-{pslug}" if stripped else pslug
+        return stripped
 
     @staticmethod
     def _strip_artist_tokens(title_part, artist):
@@ -593,6 +610,45 @@ class TagIO:
             if stem != ed and stem.endswith("-" + ed):
                 return stem[: -len(ed) - 1]
         return stem
+
+    _REMIX_KINDS = {"remix", "edit", "bootleg", "vip", "flip", "rework",
+                    "refix", "dub", "mix", "version", "remake"}
+
+    @classmethod
+    def _extract_remix_phrase(cls, raw):
+        """Full '(Name Remix/Edit/...)' phrase, e.g. 'Han Conscious Remix'; '' for generic editions."""
+        editions = set(cls._EDITIONS)
+        for grp in re.findall(r"\(([^)]*)\)", raw or ""):
+            grp = grp.strip()
+            if not grp or slug(grp) in editions:
+                continue
+            words = grp.split()
+            if len(words) >= 2 and words[-1].lower() in cls._REMIX_KINDS:
+                return grp
+        return ""
+
+    @classmethod
+    def _remixer_name(cls, raw):
+        """Remixer name without the kind word, e.g. 'Han Conscious'."""
+        phrase = cls._extract_remix_phrase(raw)
+        return " ".join(phrase.split()[:-1]) if phrase else ""
+
+    def derived_artist(self, path, filename):
+        """Artist credit: original artist plus any remixer named in the title or filename.
+        Original comes from the ARTIST tag, else the leading 'Artist - ' of the title.
+        """
+        existing = (self.read_artist(path) or "").strip()
+        title_tag = self.read_title(path)
+        raw = title_tag or os.path.splitext(filename)[0]
+        remixer = self._remixer_name(title_tag or "") or self._remixer_name(os.path.splitext(filename)[0])
+        if existing:
+            original = existing
+        else:
+            halves = re.split(r"\s[-–—]\s", raw, maxsplit=1)
+            original = halves[0].strip() if len(halves) == 2 else ""
+        if not remixer or remixer.lower() in original.lower():
+            return original
+        return f"{original}, {remixer}" if original else remixer
 
     def derived_dj_name(self, path, key, bpm, keep_numbers=False):
         """Canonical NNN_stem_KEY_BPM<ext> name, preserving original extension."""
