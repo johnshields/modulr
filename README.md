@@ -3,7 +3,7 @@
 Open-source DJ companion for macOS. Analyse, tag, mix.
 
 ## Stack
-Swift + SwiftUI · AVFoundation · Accelerate · Python (madmom, librosa, ffmpeg, mutagen)
+Swift + SwiftUI · AVFoundation · Accelerate · Python (essentia, madmom, librosa, ffmpeg, mutagen)
 
 ## Requirements
 macOS 14 (Sonoma) or later, the Xcode command line tools, Homebrew.
@@ -34,7 +34,7 @@ Set `DEVELOPER_ID` and `NOTARY_PROFILE` to sign and notarise.
 See [_docs/user-guide.md](_docs/user-guide.md) for a walkthrough with screenshots.
 
 ## Features
-- BPM + key detection (madmom CNN/RNN with librosa fallback)
+- BPM + key detection (Essentia edma key profile and madmom CNN/RNN, with librosa fallback)
 - Camelot-compatible key highlighting on the active track
 - Search by title, key or BPM
 - Tag editor with iTunes artwork finder

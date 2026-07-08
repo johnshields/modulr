@@ -1,5 +1,6 @@
 """Key detection. Strategy pattern: each detector returns (pitch_class, mode).
 
+EssentiaKeyDetector -- HPCP + edma profile (matches rekordbox / DJ-tool key calls).
 MadmomKeyDetector  -- CNN classifier (SOTA, pretrained).
 LibrosaKeyDetector -- HPSS chroma + Temperley profile (fallback, less accurate).
 FallbackKeyDetector -- chains primary -> fallback on exception.
@@ -14,6 +15,25 @@ class KeyDetector(ABC):
     @abstractmethod
     def detect(self, path: str):
         """Returns (pitch_class:int 0..11, mode:int [1=major, 0=minor])."""
+
+
+class EssentiaKeyDetector(KeyDetector):
+    """Essentia KeyExtractor with the EDM profile, tuned to DJ-tool conventions."""
+
+    _PC = {"C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5,
+           "F#": 6, "Gb": 6, "G": 7, "G#": 8, "Ab": 8, "A": 9, "A#": 10,
+           "Bb": 10, "B": 11}
+
+    def detect(self, path):
+        import essentia.standard as es
+        audio = es.MonoLoader(filename=path, sampleRate=44100)()
+        key, scale, _strength = es.KeyExtractor(
+            profileType="edma", hpcpSize=36
+        )(audio)
+        pc = self._PC.get(key)
+        if pc is None:
+            raise RuntimeError(f"essentia: unmapped key {key!r}")
+        return pc, (1 if scale == "major" else 0)
 
 
 class MadmomKeyDetector(KeyDetector):

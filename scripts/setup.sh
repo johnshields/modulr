@@ -10,6 +10,6 @@ brew install python ffmpeg
 
 PIP="pip3 install --break-system-packages"
 $PIP cython numpy
-$PIP madmom librosa mutagen
+$PIP madmom librosa mutagen essentia
 
 echo "Dependencies installed. Run: bash scripts/run.sh --install"

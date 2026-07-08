@@ -7,6 +7,7 @@ from .bpm import (
     MadmomBPMDetector,
 )
 from .key import (
+    EssentiaKeyDetector,
     FallbackKeyDetector,
     KeyDetector,
     LibrosaKeyDetector,
@@ -41,7 +42,10 @@ class TrackAnalyser:
 
 
 def default_analyser() -> TrackAnalyser:
-    """Currently-preferred wiring: madmom primary, librosa fallback."""
+    """Preferred wiring: edma key (rekordbox-like) -> madmom -> librosa; madmom BPM."""
     bpm = FallbackBPMDetector(MadmomBPMDetector(), LibrosaBPMDetector())
-    key = FallbackKeyDetector(MadmomKeyDetector(), LibrosaKeyDetector())
+    key = FallbackKeyDetector(
+        EssentiaKeyDetector(),
+        FallbackKeyDetector(MadmomKeyDetector(), LibrosaKeyDetector()),
+    )
     return TrackAnalyser(bpm, key)
