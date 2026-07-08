@@ -1,6 +1,7 @@
 """Filename + folder helpers — listing, slugging, NNN_ prefix preservation."""
 import os
 import re
+import unicodedata
 
 from ..theory.constants import AUDIO_EXT_LOUDNESS
 
@@ -23,6 +24,9 @@ def list_audio(folder, exts=AUDIO_EXT_LOUDNESS):
 
 def slug(s):
     """Lowercase hyphenated. Strips trailing -KEY-BPM and leading NNN-."""
+    # Fold accents to ASCII base letters (Céleste -> celeste).
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
     s = s.strip().lower()
     s = re.sub(r"[^a-z0-9]+", "-", s)
     s = re.sub(r"-+", "-", s).strip("-")

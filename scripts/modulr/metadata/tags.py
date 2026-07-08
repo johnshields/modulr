@@ -551,8 +551,7 @@ class TagIO:
         title_tag = self.read_title(path)
         if title_tag:
             raw = title_tag
-            # No artist tag but title holds "Artist - Title" (SoundCloud, Beatport):
-            # drop the leading artist half so it does not survive into the stem.
+            # Drop a leading "Artist - " from the title when no ARTIST tag exists.
             if not artist:
                 halves = re.split(r"\s[-–—]\s", raw, maxsplit=1)
                 if len(halves) == 2:
@@ -574,8 +573,7 @@ class TagIO:
 
         stripped = self._strip_artist_tokens(title_part, artist)
         stripped = self._strip_edition(stripped)
-        # Keep a named remixer even when it lives only in the filename, not the title tag:
-        # multiple remixes of one track must not collapse to the same stem.
+        # Keep a named remixer even when it lives only in the filename.
         phrase = (self._extract_remix_phrase(title_tag or "")
                   or self._extract_remix_phrase(os.path.splitext(filename)[0]))
         if phrase:

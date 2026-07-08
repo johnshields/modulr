@@ -97,7 +97,7 @@ class AnalysePipeline(_BasePipeline):
         directory = os.path.dirname(path)
         ext = os.path.splitext(filename)[1].lower() or ".mp3"
         clean = self.tag_io.build_clean_stem(path, filename)
-        # Resolve the artist credit before any move: reads title + artist off the source.
+        # Resolve the artist credit before the move.
         artist = self.tag_io.derived_artist(path, filename)
         suffix = f"_{musical}_{bpm}"
         new_name = f"{clean}{suffix}{ext}"
@@ -106,7 +106,7 @@ class AnalysePipeline(_BasePipeline):
             self.tag_io.sync_title_to_filename(path)
             self._apply_artist(path, artist)
             return
-        # Disambiguate a clashing target while keeping the _KEY_BPM suffix intact.
+        # Disambiguate a clashing target, preserving the _KEY_BPM suffix.
         n = 2
         while os.path.exists(new_path):
             new_name = f"{clean}-{n}{suffix}{ext}"
@@ -117,7 +117,7 @@ class AnalysePipeline(_BasePipeline):
             self._apply_artist(new_path, artist)
 
     def _apply_artist(self, path, artist):
-        """Write the ARTIST tag only when it changes, keeping the log quiet otherwise."""
+        """Write the ARTIST tag only when it changes."""
         if not artist:
             return
         if (self.tag_io.read_artist(path) or "").strip() == artist:
