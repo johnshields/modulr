@@ -1,8 +1,14 @@
 import Foundation
+import CryptoKit
 
 struct Track: Identifiable, Hashable {
-    let id = UUID()
     var url: URL
+
+    /// Stable, URL-derived identity so reloads diff rows in place.
+    var id: UUID {
+        let digest = Insecure.MD5.hash(data: Data(url.absoluteString.utf8))
+        return digest.withUnsafeBytes { UUID(uuid: $0.load(as: uuid_t.self)) }
+    }
     var title: String
     var artist: String?
     var duration: TimeInterval

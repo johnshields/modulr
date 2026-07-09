@@ -1,12 +1,12 @@
 import Foundation
-import AVFoundation
 import SwiftUI
 
 /**
  * QualityCache
  * Lazy per-URL verdicts via `SpectrumGenerator.findCutoff`. Cells request
- * scores from `.onAppear`; results live in memory for the session. Two
- * concurrent operations cap CPU while scrolling large folders.
+ * scores from `.onAppear`; results live in memory for the session, keyed by URL.
+ * Content-changing edits invalidate their own URL; a folder reload keeps verdicts.
+ * Two concurrent operations cap CPU while scrolling large folders.
  */
 @MainActor
 final class QualityCache: ObservableObject {
@@ -19,16 +19,6 @@ final class QualityCache: ObservableObject {
         q.qualityOfService = .utility
         return q
     }()
-
-    init() {
-        NotificationCenter.default.addObserver(
-            forName: .libraryFolderReloaded,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.invalidateAll() }
-        }
-    }
 
     func verdict(for url: URL) -> QualityVerdict? { verdicts[url] }
 

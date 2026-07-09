@@ -13,8 +13,10 @@ from ..theory.keys import musical_to_pc_mode
 
 class KeyDetector(ABC):
     @abstractmethod
-    def detect(self, path: str):
-        """Returns (pitch_class:int 0..11, mode:int [1=major, 0=minor])."""
+    def detect(self, path: str, audio=None):
+        """Returns (pitch_class:int 0..11, mode:int [1=major, 0=minor]).
+        `audio` is an optional preloaded Essentia buffer.
+        """
 
 
 class EssentiaKeyDetector(KeyDetector):
@@ -24,9 +26,11 @@ class EssentiaKeyDetector(KeyDetector):
            "F#": 6, "Gb": 6, "G": 7, "G#": 8, "Ab": 8, "A": 9, "A#": 10,
            "Bb": 10, "B": 11}
 
-    def detect(self, path):
+    def detect(self, path, audio=None):
+        from .audio import load_essentia
         import essentia.standard as es
-        audio = es.MonoLoader(filename=path, sampleRate=44100)()
+        if audio is None:
+            audio = load_essentia(path)
         key, scale, _strength = es.KeyExtractor(
             profileType="edma", hpcpSize=36
         )(audio)
@@ -39,7 +43,7 @@ class EssentiaKeyDetector(KeyDetector):
 class MadmomKeyDetector(KeyDetector):
     """CNNKeyRecognitionProcessor — pretrained CNN classifier."""
 
-    def detect(self, path):
+    def detect(self, path, audio=None):
         from madmom.features.key import (
             CNNKeyRecognitionProcessor, key_prediction_to_label,
         )
@@ -58,7 +62,7 @@ class LibrosaKeyDetector(KeyDetector):
     _MAJOR_PROFILE = [5.0, 2.0, 3.5, 2.0, 4.5, 4.0, 2.0, 4.5, 2.0, 3.5, 1.5, 4.0]
     _MINOR_PROFILE = [5.0, 2.0, 3.5, 4.5, 2.0, 4.0, 2.0, 4.5, 3.5, 2.0, 1.5, 4.0]
 
-    def detect(self, path):
+    def detect(self, path, audio=None):
         import librosa
         import numpy as np
         y, sr = librosa.load(path, sr=22050, mono=True, duration=180)
@@ -83,8 +87,8 @@ class FallbackKeyDetector(KeyDetector):
         self.primary = primary
         self.fallback = fallback
 
-    def detect(self, path):
+    def detect(self, path, audio=None):
         try:
-            return self.primary.detect(path)
+            return self.primary.detect(path, audio=audio)
         except Exception:
-            return self.fallback.detect(path)
+            return self.fallback.detect(path, audio=audio)

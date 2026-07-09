@@ -2,6 +2,7 @@
 from ..theory.constants import CAMELOT, MUSICAL
 from .bpm import (
     BPMDetector,
+    EssentiaBPMDetector,
     FallbackBPMDetector,
     LibrosaBPMDetector,
     MadmomBPMDetector,
@@ -28,9 +29,20 @@ class TrackAnalyser:
         self._key_detector = key_detector
 
     def analyse(self, path):
-        bpm = self._clamp_bpm(self._bpm_detector.detect(path))
-        pc, mode = self._key_detector.detect(path)
+        # Decode once and share the buffer with both Essentia detectors.
+        audio = self._preload(path)
+        bpm = self._clamp_bpm(self._bpm_detector.detect(path, audio=audio))
+        pc, mode = self._key_detector.detect(path, audio=audio)
         return CAMELOT[(pc, mode)], MUSICAL[(pc, mode)], bpm
+
+    @staticmethod
+    def _preload(path):
+        """Essentia buffer for the shared fast path; None if Essentia is unavailable."""
+        try:
+            from .audio import load_essentia
+            return load_essentia(path)
+        except Exception:
+            return None
 
     @classmethod
     def _clamp_bpm(cls, bpm):
@@ -42,8 +54,11 @@ class TrackAnalyser:
 
 
 def default_analyser() -> TrackAnalyser:
-    """Preferred wiring: edma key (rekordbox-like) -> madmom -> librosa; madmom BPM."""
-    bpm = FallbackBPMDetector(MadmomBPMDetector(), LibrosaBPMDetector())
+    """Preferred wiring: Essentia primary (fast, rekordbox-like), madmom then librosa."""
+    bpm = FallbackBPMDetector(
+        EssentiaBPMDetector(),
+        FallbackBPMDetector(MadmomBPMDetector(), LibrosaBPMDetector()),
+    )
     key = FallbackKeyDetector(
         EssentiaKeyDetector(),
         FallbackKeyDetector(MadmomKeyDetector(), LibrosaKeyDetector()),
