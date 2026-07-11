@@ -97,7 +97,7 @@ enum TagService {
 
     private static func readMetadataItemsSync(_ asset: AVURLAsset) -> [AVMetadataItem] {
         let sema = DispatchSemaphore(value: 0)
-        var result: [AVMetadataItem] = []
+        nonisolated(unsafe) var result: [AVMetadataItem] = []
         Task {
             result = (try? await asset.load(.metadata)) ?? []
             sema.signal()
@@ -111,7 +111,7 @@ enum TagService {
             return number.stringValue
         }
         let sema = DispatchSemaphore(value: 0)
-        var result: String?
+        nonisolated(unsafe) var result: String?
         Task {
             result = try? await item.load(.stringValue)
             sema.signal()
