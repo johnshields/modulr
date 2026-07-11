@@ -9,7 +9,7 @@ cask "modulr" do
 
   license :mit
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
   depends_on formula: "ffmpeg"
   depends_on formula: "python@3.12"
 
