@@ -4,6 +4,10 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # ID3TagEditor 5.x needs swift-tools 6.0; hold at 4.x until the project moves to Swift 6.
+    ignore:
+      - dependency-name: "github.com/chicio/id3tageditor"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
