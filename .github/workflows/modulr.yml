@@ -40,7 +40,7 @@ jobs:
           python-version: "3.12"
 
       - name: Check for syntax errors
-        run: find scripts -name "*.py" -not -path "*/__pycache__/*" | xargs python -m py_compile
+        run: find scripts -name "*.py" -not -path "*/__pycache__/*" -exec python -m py_compile {} +
 
   python-test:
     runs-on: ubuntu-latest
@@ -91,7 +91,9 @@ jobs:
       - name: Style cask
         env:
           HOMEBREW_NO_AUTO_UPDATE: 1
-        run: brew style Casks/modulr.rb
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          brew style Casks/modulr.rb
 
   actionlint:
     runs-on: ubuntu-latest
