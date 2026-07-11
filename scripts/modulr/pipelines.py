@@ -16,6 +16,11 @@ from .metadata.tags import TagIO
 
 _TAG_EXTS = (".mp3", ".m4a", ".wav", ".mp4", ".aac", ".aif", ".aiff")
 
+# Every non-mp3 source ffmpeg can transcode to mp3. Broader than _TAG_EXTS,
+# which is limited to formats the tag backends read/write.
+_CONVERT_SRC_EXTS = (".flac", ".wav", ".m4a", ".mp4", ".aac", ".aif",
+                     ".aiff", ".ogg", ".opus", ".wma", ".alac")
+
 
 class _BasePipeline:
     """Shared dependency wiring + folder iteration plumbing."""
@@ -206,8 +211,7 @@ class ConvertPipeline(_BasePipeline):
 
     def convert_folder(self, folder, delete_original=False):
         """Transcode every non-mp3 file in folder. Skips mp3s and existing targets."""
-        files = [p for p in list_audio(folder, exts=_TAG_EXTS)
-                 if os.path.splitext(p)[1].lower() != ".mp3"]
+        files = list_audio(folder, exts=_CONVERT_SRC_EXTS)
         log(f"TOTAL: {len(files)}")
         if not files:
             log_done(); return
