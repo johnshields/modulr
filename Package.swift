@@ -8,7 +8,7 @@ let package = Package(
         .executable(name: "Modulr", targets: ["Modulr"])
     ],
     dependencies: [
-        .package(url: "https://github.com/chicio/ID3TagEditor.git", from: "4.0.0")
+        .package(url: "https://github.com/chicio/ID3TagEditor.git", from: "5.5.0")
     ],
     targets: [
         .executableTarget(
