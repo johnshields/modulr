@@ -141,6 +141,11 @@ final class Analyzer: ObservableObject {
         run(args: ["--prepare-files"] + urls.map(\.path), completion: completion)
     }
 
+    func reanalyseFiles(_ urls: [URL], completion: @escaping () -> Void) {
+        mode = .analyse
+        run(args: ["--reanalyse-files"] + urls.map(\.path), completion: completion)
+    }
+
     func bakeTweak(_ url: URL, rate: Float, cents: Float, bpm: Int?, key: String?, completion: @escaping () -> Void) {
         mode = .normalize
         let args = [

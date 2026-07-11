@@ -33,6 +33,8 @@ def _build_parser():
     p.add_argument("--file")
     p.add_argument("--prepare-files", nargs="+", metavar="FILE",
                    help="Analyse untagged, keep tagged, then rename each to DJ format")
+    p.add_argument("--reanalyse-files", nargs="+", metavar="FILE",
+                   help="Force fresh BPM+key detection ignoring existing tags, then rename")
     p.add_argument("--rename", action="store_true")
     p.add_argument("--only-untagged", action="store_true",
                    help="With --folder, skip tracks that already have BPM and key")
@@ -113,6 +115,14 @@ def main():
         log(f"TOTAL: {len(files)}")
         for i, f in enumerate(files, 1):
             pipeline.run_one(f, True, idx=i, total=len(files), allow_skip=True)
+        log_done()
+        return
+    if args.reanalyse_files:
+        pipeline = AnalysePipeline()
+        files = args.reanalyse_files
+        log(f"TOTAL: {len(files)}")
+        for i, f in enumerate(files, 1):
+            pipeline.run_one(f, True, idx=i, total=len(files), allow_skip=False)
         log_done()
         return
     if args.normalize:

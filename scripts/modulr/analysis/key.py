@@ -1,6 +1,6 @@
 """Key detection. Strategy pattern: each detector returns (pitch_class, mode).
 
-EssentiaKeyDetector -- HPCP + edma profile (matches rekordbox / DJ-tool key calls).
+EssentiaKeyDetector -- HPCP + edmm profile (matches rekordbox / DJ-tool key calls).
 MadmomKeyDetector  -- CNN classifier (SOTA, pretrained).
 LibrosaKeyDetector -- HPSS chroma + Temperley profile (fallback, less accurate).
 FallbackKeyDetector -- chains primary -> fallback on exception.
@@ -20,7 +20,7 @@ class KeyDetector(ABC):
 
 
 class EssentiaKeyDetector(KeyDetector):
-    """Essentia KeyExtractor with the EDM profile, tuned to DJ-tool conventions."""
+    """Essentia KeyExtractor with the edmm profile, matching rekordbox mode calls."""
 
     _PC = {"C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5,
            "F#": 6, "Gb": 6, "G": 7, "G#": 8, "Ab": 8, "A": 9, "A#": 10,
@@ -32,7 +32,7 @@ class EssentiaKeyDetector(KeyDetector):
         if audio is None:
             audio = load_essentia(path)
         key, scale, _strength = es.KeyExtractor(
-            profileType="edma", hpcpSize=36
+            profileType="edmm", hpcpSize=36
         )(audio)
         pc = self._PC.get(key)
         if pc is None:

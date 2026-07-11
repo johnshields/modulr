@@ -22,6 +22,7 @@ struct TrackListView: View {
     @State private var unanalysedOnly = false
     @State private var unformattedOnly = false
     @State private var showMove = false
+    @State private var showReanalyse = false
 
     @State private var editItems: [Track] = []
     @State private var dragID: UUID?
@@ -186,6 +187,23 @@ struct TrackListView: View {
             }
 
             Spacer()
+
+            if !editingOrder && !library.tracks.isEmpty {
+                Button {
+                    showReanalyse = true
+                } label: {
+                    Label("Re-analyse…", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Pick tracks to force fresh BPM and key detection, ignoring existing tags")
+                .sheet(isPresented: $showReanalyse) {
+                    ReanalyseSheet(tracks: sorted) { picked in
+                        analyzer.reanalyseFiles(picked.map(\.url)) { library.reloadCurrent() }
+                        showAnalyze = true
+                    }
+                }
+            }
 
             if !editingOrder && library.source == .playlist && !library.tracks.isEmpty {
                 Button {
