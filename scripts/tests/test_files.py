@@ -15,7 +15,15 @@ class SlugTests(unittest.TestCase):
         self.assertEqual(slug("Some Track Title"), "some-track-title")
 
     def test_strip_punct(self):
-        self.assertEqual(slug("Don't Stop! (Remix)"), "don-t-stop-remix")
+        self.assertEqual(slug("Don't Stop! (Remix)"), "dont-stop-remix")
+
+    def test_apostrophes_kept_whole(self):
+        self.assertEqual(slug("Can't Stop"), "cant-stop")
+        self.assertEqual(slug("L'Impératrice"), "limperatrice")
+
+    def test_folds_accents(self):
+        self.assertEqual(slug("Céleste"), "celeste")
+        self.assertEqual(slug("Ben Böhmer"), "ben-bohmer")
 
     def test_strip_trailing_key_bpm(self):
         self.assertEqual(slug("song-title-bmin-139"), "song-title")

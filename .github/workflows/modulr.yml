@@ -1,0 +1,80 @@
+name: modulr CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Modulr/**"
+      - "scripts/**"
+      - "Package.swift"
+      - "Package.resolved"
+      - ".github/workflows/modulr.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Modulr/**"
+      - "scripts/**"
+      - "Package.swift"
+      - "Package.resolved"
+      - ".github/workflows/modulr.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check for syntax errors
+        run: find scripts -name "*.py" -not -path "*/__pycache__/*" | xargs python -m py_compile
+
+  python-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [python-lint]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Run tests
+        working-directory: scripts
+        run: python -m pytest tests -q
+
+  swift-build:
+    runs-on: macos-14
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: ${{ runner.os }}-spm-
+
+      - name: Build
+        run: swift build -v
