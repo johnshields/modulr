@@ -3,6 +3,13 @@ import re
 
 from .constants import CAMELOT_TO_MUSICAL, MADMOM_KEY_TO_MUSICAL, MUSICAL
 
+# Pitch name to pitch class, folding sharps onto their flat spelling (Camelot convention).
+_PC_BY_NAME = {
+    "C": 0, "C#": 1, "DB": 1, "D": 2, "D#": 3, "EB": 3, "E": 4, "FB": 4,
+    "F": 5, "E#": 5, "F#": 6, "GB": 6, "G": 7, "G#": 8, "AB": 8, "A": 9,
+    "A#": 10, "BB": 10, "B": 11, "CB": 11,
+}
+
 
 def normalise_musical(raw):
     """Map any key form (Camelot, 'emin', 'C# minor', 'Eb min', etc.) to short MUSICAL."""
@@ -19,11 +26,14 @@ def normalise_musical(raw):
     if pitch is None or pitch[0] not in "ABCDEFG":
         return raw
 
+    pc = _PC_BY_NAME.get(pitch.upper())
+    if pc is None:
+        return raw
     rest_lower = rest.lower()
     is_minor = (rest_lower.startswith("min")
                 or rest_lower == "m"
                 or rest_lower.startswith("moll"))
-    return pitch + ("m" if is_minor else "")
+    return MUSICAL[(pc, 0 if is_minor else 1)]
 
 
 def musical_to_pc_mode(musical):

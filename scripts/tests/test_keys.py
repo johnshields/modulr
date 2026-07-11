@@ -20,12 +20,18 @@ class NormaliseMusicalTests(unittest.TestCase):
     def test_lowercase_min_suffix(self):
         self.assertEqual(normalise_musical("emin"), "Em")
         self.assertEqual(normalise_musical("a min"), "Am")
-        self.assertEqual(normalise_musical("c#min"), "C#m")
+        self.assertEqual(normalise_musical("c#min"), "Dbm")
 
     def test_word_minor(self):
-        self.assertEqual(normalise_musical("C# minor"), "C#m")
+        self.assertEqual(normalise_musical("C# minor"), "Dbm")
         self.assertEqual(normalise_musical("Bb minor"), "Bbm")
         self.assertEqual(normalise_musical("a moll"), "Am")
+
+    def test_sharps_fold_to_flats(self):
+        self.assertEqual(normalise_musical("C#"), "Db")
+        self.assertEqual(normalise_musical("D#m"), "Ebm")
+        self.assertEqual(normalise_musical("G#"), "Ab")
+        self.assertEqual(normalise_musical("F#m"), "F#m")
 
     def test_already_canonical(self):
         for label in ("C", "F#", "Bbm", "Em", "Db"):

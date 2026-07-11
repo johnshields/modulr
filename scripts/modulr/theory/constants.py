@@ -21,7 +21,7 @@ CAMELOT = {
 # (pitch_class, mode) -> short musical label
 MUSICAL = {
     (0,  1): "C",   (0,  0): "Cm",
-    (1,  1): "Db",  (1,  0): "C#m",
+    (1,  1): "Db",  (1,  0): "Dbm",
     (2,  1): "D",   (2,  0): "Dm",
     (3,  1): "Eb",  (3,  0): "Ebm",
     (4,  1): "E",   (4,  0): "Em",
@@ -40,7 +40,7 @@ CAMELOT_TO_MUSICAL = {
     "5A": "Cm",  "5B": "Eb",  "6A": "Gm",  "6B": "Bb",
     "7A": "Dm",  "7B": "F",   "8A": "Am",  "8B": "C",
     "9A": "Em",  "9B": "G",   "10A": "Bm", "10B": "D",
-    "11A": "F#m","11B": "A",  "12A": "C#m","12B": "E",
+    "11A": "F#m","11B": "A",  "12A": "Dbm","12B": "E",
 }
 
 # madmom CNNKeyRecognitionProcessor returns "C major" / "C# minor" form.
@@ -50,7 +50,7 @@ MADMOM_KEY_TO_MUSICAL = {
     "F# major":"F#","Gb major":"F#","G major":"G","G# major":"Ab",
     "Ab major":"Ab","A major":"A","A# major":"Bb","Bb major":"Bb",
     "B major":"B",
-    "C minor":"Cm","C# minor":"C#m","Db minor":"C#m","D minor":"Dm",
+    "C minor":"Cm","C# minor":"Dbm","Db minor":"Dbm","D minor":"Dm",
     "D# minor":"Ebm","Eb minor":"Ebm","E minor":"Em","F minor":"Fm",
     "F# minor":"F#m","Gb minor":"F#m","G minor":"Gm","G# minor":"Abm",
     "Ab minor":"Abm","A minor":"Am","A# minor":"Bbm","Bb minor":"Bbm",
