@@ -41,7 +41,8 @@ See [_docs/user-guide.md](_docs/user-guide.md) for a walkthrough with screenshot
 - Loudness measure and match (ffmpeg volumedetect)
 - Tempo + pitch bake (`asetrate` + `atempo`)
 - DJ-format rename `title_KEY_BPM` with edit-order drag reorder
-- Bulk move playlist tracks into a folder via a track-picker sheet
+- Bulk move, add and re-analyse tracks via sortable track-picker sheets
+- Playlists, favourites and recents in a local SQLite database
 - Rekordbox-style RGB waveform (low/mid/high mapped to red/green/blue)
 - Spectrogram with frequency-energy colourmap and cutoff quality verdict
 - Stereo meters, hover-scrub timer

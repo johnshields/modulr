@@ -73,6 +73,8 @@ cutoff frequency.
 
 ## Playlists and favourites
 
-- **New Playlist…** in the sidebar, then drag tracks onto it.
+- **New Playlist…** in the sidebar, then drag tracks onto it, or use **Add Tracks…** to pick a folder and tick tracks in bulk.
 - Star a track to add it to **Favourites > Tracks**; star a folder to pin it.
 - Reorder a playlist with **Edit Order**, or **Move…** its tracks into one folder.
+- **Re-analyse…** force-redetects BPM and key, writing a filename backup first.
+- Playlists, favourites and recents are kept in a local SQLite database.
