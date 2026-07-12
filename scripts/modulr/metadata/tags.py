@@ -556,6 +556,9 @@ class TagIO:
                 halves = re.split(r"\s[-–—]\s", raw, maxsplit=1)
                 if len(halves) == 2:
                     raw = halves[1]
+            # Strip an existing _KEY_BPM before slugging: a sharp key (F#m) would
+            # otherwise split on the # and leave an orphan letter after stripping.
+            raw = re.sub(r"_[A-G][#b]?m?_\d{2,3}$", "", raw)
             title_part = slug(raw)
         else:
             stem, _ext = os.path.splitext(filename)
