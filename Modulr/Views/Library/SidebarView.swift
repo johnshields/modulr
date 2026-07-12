@@ -187,7 +187,7 @@ struct SidebarView: View {
         }
     }
 
-    private func consolidatePlaylist(id: UUID) {
+    private func consolidatePlaylist(id: String) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true

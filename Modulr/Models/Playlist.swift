@@ -7,11 +7,11 @@ import Foundation
  * that TRCK / trkn writing is reserved for playlist Edit Order.
  */
 struct Playlist: Identifiable, Hashable {
-    let id: UUID
+    let id: String
     var name: String
     var trackURLs: [URL]
 
-    init(id: UUID = UUID(), name: String, trackURLs: [URL] = []) {
+    init(id: String = UID.gen("PLS"), name: String, trackURLs: [URL] = []) {
         self.id = id
         self.name = name
         self.trackURLs = trackURLs

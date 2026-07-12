@@ -7,7 +7,7 @@ import AppKit
  * Tracks already in the playlist are hidden. Mirrors MoveSheet's selection UI.
  */
 struct AddToPlaylistSheet: View {
-    let playlistID: UUID
+    let playlistID: String
     let playlistName: String
     let existingURLs: Set<URL>
     @EnvironmentObject var library: Library

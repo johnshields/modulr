@@ -19,28 +19,27 @@ final class PlaylistStore {
 
     func loadAll() -> [Playlist] {
         db.fetchAll(PlaylistQueries.findAll).compactMap { row in
-            guard let uidString = row["uid"] as? String,
-                  let id = UUID(uuidString: uidString),
+            guard let uid = row["uid"] as? String,
                   let name = row["name"] as? String else { return nil }
-            let urls = db.fetchAll(PlaylistQueries.tracksFor, [.text(uidString)])
+            let urls = db.fetchAll(PlaylistQueries.tracksFor, [.text(uid)])
                 .compactMap { ($0["track_url"] as? String).flatMap(URL.init(string:)) }
-            return Playlist(id: id, name: name, trackURLs: urls)
+            return Playlist(id: uid, name: name, trackURLs: urls)
         }
     }
 
     func save(_ playlist: Playlist) {
-        let uid = playlist.id.uuidString
+        let uid = playlist.id
         db.transaction {
             db.exec(PlaylistQueries.upsertPlaylist, [.text(uid), .text(playlist.name)])
             db.exec(PlaylistQueries.clearTracks, [.text(uid)])
             for (position, url) in playlist.trackURLs.enumerated() {
                 db.exec(PlaylistQueries.insertTrack,
-                        [.text(UUID().uuidString), .text(uid), .text(url.absoluteString), .int(position)])
+                        [.text(UID.gen("TRK")), .text(uid), .text(url.absoluteString), .int(position)])
             }
         }
     }
 
-    func delete(id: UUID) {
-        db.exec(PlaylistQueries.softDelete, [.text(id.uuidString)])
+    func delete(id: String) {
+        db.exec(PlaylistQueries.softDelete, [.text(id)])
     }
 }

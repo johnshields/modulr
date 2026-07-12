@@ -28,7 +28,7 @@ final class RecentsStore {
     }
 
     func setLastFolder(_ url: URL) {
-        db.exec(LibraryQueries.setSetting, [uid(), .text("last_folder"), .text(url.path)])
+        db.exec(LibraryQueries.setSetting, [.text(UID.gen("STG")), .text("last_folder"), .text(url.path)])
     }
 
     func loadRecents() -> [URL] {
@@ -37,7 +37,7 @@ final class RecentsStore {
 
     @discardableResult
     func addRecent(_ url: URL, current: [URL]) -> [URL] {
-        db.exec(LibraryQueries.recentUpsert, [uid(), .text(url.path)])
+        db.exec(LibraryQueries.recentUpsert, [.text(UID.gen("RCT")), .text(url.path)])
         db.exec(LibraryQueries.recentTrim, [.int(maxRecents)])
         return loadRecents()
     }
@@ -55,12 +55,10 @@ final class RecentsStore {
         db.transaction {
             db.exec(LibraryQueries.favouriteClearKind, [.text(kind)])
             for url in urls {
-                db.exec(LibraryQueries.favouriteInsert, [uid(), .text(kind), .text(url.path)])
+                db.exec(LibraryQueries.favouriteInsert, [.text(UID.gen("FAV")), .text(kind), .text(url.path)])
             }
         }
     }
-
-    private func uid() -> Database.Value { .text(UUID().uuidString) }
 
     private func paths(_ sql: String, _ params: [Database.Value]) -> [URL] {
         db.fetchAll(sql, params)
@@ -79,7 +77,7 @@ final class RecentsStore {
         }
         // Reversed so the newest entry gets the latest updated_at.
         for path in (d.stringArray(forKey: "modulr.recents") ?? []).reversed() {
-            db.exec(LibraryQueries.recentUpsert, [uid(), .text(path)])
+            db.exec(LibraryQueries.recentUpsert, [.text(UID.gen("RCT")), .text(path)])
         }
         saveFavourites("folder", (d.stringArray(forKey: "modulr.favouriteFolders") ?? [])
             .map { URL(fileURLWithPath: $0) })

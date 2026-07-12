@@ -47,7 +47,7 @@ final class Library: ObservableObject {
         return playlist
     }
 
-    func renamePlaylist(id: UUID, to newName: String) {
+    func renamePlaylist(id: String, to newName: String) {
         let trimmed = newName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty,
               let idx = playlists.firstIndex(where: { $0.id == id }) else { return }
@@ -59,7 +59,7 @@ final class Library: ObservableObject {
         if currentPlaylist?.id == id { currentPlaylist = renamed }
     }
 
-    func deletePlaylist(id: UUID) {
+    func deletePlaylist(id: String) {
         playlists.removeAll { $0.id == id }
         playlistStore.delete(id: id)
         if currentPlaylist?.id == id {
@@ -68,14 +68,14 @@ final class Library: ObservableObject {
         }
     }
 
-    func removeFromPlaylist(_ playlistID: UUID, trackURL: URL) {
+    func removeFromPlaylist(_ playlistID: String, trackURL: URL) {
         guard let idx = playlists.firstIndex(where: { $0.id == playlistID }) else { return }
         playlists[idx].trackURLs.removeAll { $0 == trackURL }
         playlistStore.save(playlists[idx])
         if currentPlaylist?.id == playlistID { openPlaylist(playlists[idx]) }
     }
 
-    func addToPlaylist(_ playlistID: UUID, trackURLs: [URL]) {
+    func addToPlaylist(_ playlistID: String, trackURLs: [URL]) {
         guard let idx = playlists.firstIndex(where: { $0.id == playlistID }) else { return }
         let existing = Set(playlists[idx].trackURLs)
         let added = trackURLs.filter { !existing.contains($0) }
@@ -166,7 +166,7 @@ final class Library: ObservableObject {
         var failed = 0
     }
 
-    func consolidatePlaylist(id: UUID, to destination: URL, urls: [URL]? = nil) -> ConsolidateResult {
+    func consolidatePlaylist(id: String, to destination: URL, urls: [URL]? = nil) -> ConsolidateResult {
         guard let idx = playlists.firstIndex(where: { $0.id == id }) else {
             return ConsolidateResult()
         }

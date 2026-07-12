@@ -6,7 +6,7 @@ import AppKit
  * Bulk-move modal: pick a destination folder, select tracks, move, report outcome.
  */
 struct MoveSheet: View {
-    let playlistID: UUID
+    let playlistID: String
     let playlistName: String
     let tracks: [Track]
     @EnvironmentObject var library: Library
@@ -16,7 +16,7 @@ struct MoveSheet: View {
     @State private var destination: URL?
     @State private var result: Library.ConsolidateResult?
 
-    init(playlistID: UUID, playlistName: String, tracks: [Track]) {
+    init(playlistID: String, playlistName: String, tracks: [Track]) {
         self.playlistID = playlistID
         self.playlistName = playlistName
         self.tracks = tracks
