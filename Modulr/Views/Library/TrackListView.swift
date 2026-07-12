@@ -22,6 +22,7 @@ struct TrackListView: View {
     @State private var unanalysedOnly = false
     @State private var unformattedOnly = false
     @State private var showMove = false
+    @State private var showAddTracks = false
     @State private var showReanalyse = false
 
     @State private var editItems: [Track] = []
@@ -202,6 +203,26 @@ struct TrackListView: View {
                         analyzer.reanalyseFiles(picked.map(\.url)) { library.reloadCurrent() }
                         showAnalyze = true
                     }
+                }
+            }
+
+            if !editingOrder && library.source == .playlist, let playlist = library.currentPlaylist {
+                Button {
+                    showAddTracks = true
+                } label: {
+                    Label("Add Tracks…", systemImage: "text.badge.plus")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .tint(Theme.playlist)
+                .help("Choose a folder and add tracks to this playlist")
+                .sheet(isPresented: $showAddTracks) {
+                    AddToPlaylistSheet(
+                        playlistID: playlist.id,
+                        playlistName: playlist.name,
+                        existingURLs: Set(playlist.trackURLs)
+                    )
+                    .environmentObject(library)
                 }
             }
 
