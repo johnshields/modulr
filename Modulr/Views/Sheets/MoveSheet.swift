@@ -15,7 +15,6 @@ struct MoveSheet: View {
     @State private var selected: Set<Track.ID>
     @State private var destination: URL?
     @State private var result: Library.ConsolidateResult?
-    @State private var artCache: [URL: NSImage] = [:]
 
     init(playlistID: UUID, playlistName: String, tracks: [Track]) {
         self.playlistID = playlistID
@@ -39,8 +38,10 @@ struct MoveSheet: View {
                 summarySection(result)
             } else {
                 destinationSection
-                selectionToolbar
-                trackList
+                TrackSelectList(
+                    tracks: tracks, selected: $selected, tint: Theme.accent,
+                    subtitle: { $0.url.deletingLastPathComponent().lastPathComponent }
+                )
                 footer
             }
         }
@@ -91,69 +92,6 @@ struct MoveSheet: View {
         }
     }
 
-    private var selectionToolbar: some View {
-        HStack(spacing: 8) {
-            Text("\(selected.count) of \(tracks.count) selected")
-                .font(.caption).foregroundStyle(.secondary)
-            Spacer()
-            Button("All") { selected = Set(tracks.map(\.id)) }
-                .controlSize(.small)
-                .disabled(selected.count == tracks.count)
-            Button("None") { selected.removeAll() }
-                .controlSize(.small)
-                .disabled(selected.isEmpty)
-        }
-    }
-
-    private var trackList: some View {
-        ScrollView {
-            LazyVStack(spacing: 2) {
-                ForEach(tracks) { t in
-                    row(t)
-                }
-            }
-            .padding(8)
-        }
-        .background(Color.black.opacity(0.2))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .frame(maxHeight: .infinity)
-    }
-
-    @ViewBuilder
-    private func row(_ t: Track) -> some View {
-        let isOn = selected.contains(t.id)
-        HStack(spacing: 10) {
-            Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(isOn ? Theme.accent : .secondary)
-                .frame(width: 18)
-            ZStack {
-                RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.4))
-                if let img = artCache[t.url] {
-                    Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                } else {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: 32, height: 32)
-            .task { await loadArt(t.url) }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(t.title).lineLimit(1)
-                Text(t.url.deletingLastPathComponent().lastPathComponent)
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
-            Spacer()
-            if let bpm = t.bpm { Text("\(bpm)").font(.caption).foregroundStyle(.secondary) }
-            if let k = t.key { Text(KeyNormalizer.toMusical(k)).font(.caption).foregroundStyle(.secondary) }
-        }
-        .padding(.horizontal, 10).padding(.vertical, 6)
-        .background(isOn ? Theme.accent.opacity(0.08) : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .contentShape(Rectangle())
-        .onTapGesture { toggle(t.id) }
-    }
-
     private var footer: some View {
         HStack {
             Spacer()
@@ -199,10 +137,6 @@ struct MoveSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
-    private func toggle(_ id: Track.ID) {
-        if selected.contains(id) { selected.remove(id) } else { selected.insert(id) }
-    }
-
     private func chooseFolder() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
@@ -222,10 +156,5 @@ struct MoveSheet: View {
             to: dest,
             urls: selectedTracks.map(\.url)
         )
-    }
-
-    private func loadArt(_ url: URL) async {
-        guard artCache[url] == nil, let img = await ArtworkLoader.load(url) else { return }
-        artCache[url] = img
     }
 }

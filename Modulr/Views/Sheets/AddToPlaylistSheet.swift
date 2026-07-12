@@ -17,7 +17,6 @@ struct AddToPlaylistSheet: View {
     @State private var candidates: [Track] = []
     @State private var selected: Set<Track.ID> = []
     @State private var scanning = false
-    @State private var artCache: [URL: NSImage] = [:]
 
     private var selectedTracks: [Track] {
         candidates.filter { selected.contains($0.id) }
@@ -27,8 +26,12 @@ struct AddToPlaylistSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             header
             sourceSection
-            selectionToolbar
-            trackList
+            TrackSelectList(
+                tracks: candidates, selected: $selected, tint: Theme.playlist,
+                scanning: scanning,
+                emptyText: source == nil ? "Choose a folder to add tracks from."
+                                         : "No new tracks in this folder."
+            )
             footer
         }
         .padding(20)
@@ -77,78 +80,6 @@ struct AddToPlaylistSheet: View {
         }
     }
 
-    private var selectionToolbar: some View {
-        HStack(spacing: 8) {
-            Text("\(selected.count) of \(candidates.count) selected")
-                .font(.caption).foregroundStyle(.secondary)
-            Spacer()
-            Button("All") { selected = Set(candidates.map(\.id)) }
-                .controlSize(.small)
-                .disabled(candidates.isEmpty || selected.count == candidates.count)
-            Button("None") { selected.removeAll() }
-                .controlSize(.small)
-                .disabled(selected.isEmpty)
-        }
-    }
-
-    private var trackList: some View {
-        ScrollView {
-            if scanning {
-                HStack { Spacer(); ProgressView().controlSize(.small); Spacer() }
-                    .padding(.top, 40)
-            } else if candidates.isEmpty {
-                Text(source == nil ? "Choose a folder to add tracks from."
-                                   : "No new tracks in this folder.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 40)
-            } else {
-                LazyVStack(spacing: 2) {
-                    ForEach(candidates) { t in row(t) }
-                }
-                .padding(8)
-            }
-        }
-        .background(Color.black.opacity(0.2))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .frame(maxHeight: .infinity)
-    }
-
-    @ViewBuilder
-    private func row(_ t: Track) -> some View {
-        let isOn = selected.contains(t.id)
-        HStack(spacing: 10) {
-            Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(isOn ? Theme.playlist : .secondary)
-                .frame(width: 18)
-            ZStack {
-                RoundedRectangle(cornerRadius: 4).fill(Color.black.opacity(0.4))
-                if let img = artCache[t.url] {
-                    Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                } else {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: 32, height: 32)
-            .task { await loadArt(t.url) }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(t.title).lineLimit(1)
-                Text(t.url.lastPathComponent)
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
-            Spacer()
-            if let bpm = t.bpm { Text("\(bpm)").font(.caption).foregroundStyle(.secondary) }
-            if let k = t.key { Text(KeyNormalizer.toMusical(k)).font(.caption).foregroundStyle(.secondary) }
-        }
-        .padding(.horizontal, 10).padding(.vertical, 6)
-        .background(isOn ? Theme.playlist.opacity(0.08) : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .contentShape(Rectangle())
-        .onTapGesture { toggle(t.id) }
-    }
-
     private var footer: some View {
         HStack {
             Spacer()
@@ -163,10 +94,6 @@ struct AddToPlaylistSheet: View {
             .disabled(selected.isEmpty)
             .keyboardShortcut(.defaultAction)
         }
-    }
-
-    private func toggle(_ id: Track.ID) {
-        if selected.contains(id) { selected.remove(id) } else { selected.insert(id) }
     }
 
     private func chooseFolder() {
@@ -201,10 +128,5 @@ struct AddToPlaylistSheet: View {
         guard !urls.isEmpty else { return }
         library.addToPlaylist(playlistID, trackURLs: urls)
         dismiss()
-    }
-
-    private func loadArt(_ url: URL) async {
-        guard artCache[url] == nil, let img = await ArtworkLoader.load(url) else { return }
-        artCache[url] = img
     }
 }
