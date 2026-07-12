@@ -17,7 +17,8 @@ let package = Package(
                 .product(name: "ID3TagEditor", package: "ID3TagEditor")
             ],
             path: "Modulr",
-            resources: [.process("Resources")]
+            resources: [.process("Resources")],
+            linkerSettings: [.linkedLibrary("sqlite3")]
         )
     ]
 )

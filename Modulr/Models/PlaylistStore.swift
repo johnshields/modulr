@@ -2,44 +2,45 @@ import Foundation
 
 /**
  * PlaylistStore
- * JSON persistence for playlists in `~/Library/Application Support/Modulr/`.
- * One file per playlist keyed by UUID so renames + reorders are atomic.
+ * SQLite persistence for playlists in `~/Library/Application Support/Modulr/`.
+ * Playlists and their ordered track URLs live in two tables.
  */
 final class PlaylistStore {
-    private let folder: URL
+    private let db: Database
 
     init() {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first ?? FileManager.default.temporaryDirectory
-        let root = support.appendingPathComponent("Modulr/Playlists", isDirectory: true)
-        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        self.folder = root
+        let root = support.appendingPathComponent("Modulr", isDirectory: true)
+        self.db = Database(path: root.appendingPathComponent("modulr.sqlite"))
+        db.execScript(PlaylistSchema.sql)
     }
 
     func loadAll() -> [Playlist] {
-        let urls = (try? FileManager.default.contentsOfDirectory(
-            at: folder, includingPropertiesForKeys: nil
-        )) ?? []
-        let decoder = JSONDecoder()
-        return urls
-            .filter { $0.pathExtension.lowercased() == "json" }
-            .compactMap { url in
-                (try? Data(contentsOf: url)).flatMap { try? decoder.decode(Playlist.self, from: $0) }
-            }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        db.fetchAll(PlaylistQueries.findAll).compactMap { row in
+            guard let uidString = row["uid"] as? String,
+                  let id = UUID(uuidString: uidString),
+                  let name = row["name"] as? String else { return nil }
+            let urls = db.fetchAll(PlaylistQueries.tracksFor, [.text(uidString)])
+                .compactMap { ($0["track_url"] as? String).flatMap(URL.init(string:)) }
+            return Playlist(id: id, name: name, trackURLs: urls)
+        }
     }
 
     func save(_ playlist: Playlist) {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let data = try? encoder.encode(playlist) else { return }
-        let url = folder.appendingPathComponent("\(playlist.id.uuidString).json")
-        try? data.write(to: url, options: .atomic)
+        let uid = playlist.id.uuidString
+        db.transaction {
+            db.exec(PlaylistQueries.upsertPlaylist, [.text(uid), .text(playlist.name)])
+            db.exec(PlaylistQueries.clearTracks, [.text(uid)])
+            for (position, url) in playlist.trackURLs.enumerated() {
+                db.exec(PlaylistQueries.insertTrack,
+                        [.text(uid), .text(url.absoluteString), .int(position)])
+            }
+        }
     }
 
     func delete(id: UUID) {
-        let url = folder.appendingPathComponent("\(id.uuidString).json")
-        try? FileManager.default.removeItem(at: url)
+        db.exec(PlaylistQueries.softDelete, [.text(id.uuidString)])
     }
 }

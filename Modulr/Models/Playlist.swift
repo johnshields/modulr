@@ -6,7 +6,7 @@ import Foundation
  * playlist just references them. Order is the playlist's responsibility now
  * that TRCK / trkn writing is reserved for playlist Edit Order.
  */
-struct Playlist: Identifiable, Codable, Hashable {
+struct Playlist: Identifiable, Hashable {
     let id: UUID
     var name: String
     var trackURLs: [URL]
