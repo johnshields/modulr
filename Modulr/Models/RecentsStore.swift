@@ -2,60 +2,89 @@ import Foundation
 
 /**
  * RecentsStore
- * UserDefaults-backed store for last opened folder and recents list
+ * SQLite-backed store for the last opened folder, recents and favourites in
+ * `~/Library/Application Support/Modulr/`. Public surface is unchanged. Values
+ * from the earlier UserDefaults store are imported once, then those keys cleared.
  */
 final class RecentsStore {
-    private let defaults = UserDefaults.standard
-    private let kLastFolder = "modulr.lastFolder"
-    private let kRecents = "modulr.recents"
-    private let kFavouriteFolders = "modulr.favouriteFolders"
-    private let kFavouriteTracks = "modulr.favouriteTracks"
+    private let db: Database
     private let maxRecents = 10
 
+    init() {
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first ?? FileManager.default.temporaryDirectory
+        let root = support.appendingPathComponent("Modulr", isDirectory: true)
+        self.db = Database(path: root.appendingPathComponent("modulr.sqlite"))
+        db.execScript(LibrarySchema.sql)
+        migrateDefaults()
+    }
+
     var lastFolder: URL? {
-        guard let path = defaults.string(forKey: kLastFolder) else { return nil }
+        guard let path = db.fetchOne(LibraryQueries.getSetting, [.text("last_folder")])?["value"] as? String
+        else { return nil }
         let url = URL(fileURLWithPath: path)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
     func setLastFolder(_ url: URL) {
-        defaults.set(url.path, forKey: kLastFolder)
+        db.exec(LibraryQueries.setSetting, [uid(), .text("last_folder"), .text(url.path)])
     }
 
     func loadRecents() -> [URL] {
-        let paths = defaults.stringArray(forKey: kRecents) ?? []
-        return paths
-            .map { URL(fileURLWithPath: $0) }
-            .filter { FileManager.default.fileExists(atPath: $0.path) }
+        paths(LibraryQueries.recentsAll, [.int(maxRecents)])
     }
 
+    @discardableResult
     func addRecent(_ url: URL, current: [URL]) -> [URL] {
-        var list = current.filter { $0 != url }
-        list.insert(url, at: 0)
-        if list.count > maxRecents { list = Array(list.prefix(maxRecents)) }
-        defaults.set(list.map(\.path), forKey: kRecents)
-        return list
+        db.exec(LibraryQueries.recentUpsert, [uid(), .text(url.path)])
+        db.exec(LibraryQueries.recentTrim, [.int(maxRecents)])
+        return loadRecents()
     }
 
-    func loadFavouriteFolders() -> [URL] {
-        let paths = defaults.stringArray(forKey: kFavouriteFolders) ?? []
-        return paths
+    func loadFavouriteFolders() -> [URL] { favourites("folder") }
+    func saveFavouriteFolders(_ urls: [URL]) { saveFavourites("folder", urls) }
+    func loadFavouriteTracks() -> [URL] { favourites("track") }
+    func saveFavouriteTracks(_ urls: [URL]) { saveFavourites("track", urls) }
+
+    private func favourites(_ kind: String) -> [URL] {
+        paths(LibraryQueries.favouritesByKind, [.text(kind)])
+    }
+
+    private func saveFavourites(_ kind: String, _ urls: [URL]) {
+        db.transaction {
+            db.exec(LibraryQueries.favouriteClearKind, [.text(kind)])
+            for url in urls {
+                db.exec(LibraryQueries.favouriteInsert, [uid(), .text(kind), .text(url.path)])
+            }
+        }
+    }
+
+    private func uid() -> Database.Value { .text(UUID().uuidString) }
+
+    private func paths(_ sql: String, _ params: [Database.Value]) -> [URL] {
+        db.fetchAll(sql, params)
+            .compactMap { $0["path"] as? String }
             .map { URL(fileURLWithPath: $0) }
             .filter { FileManager.default.fileExists(atPath: $0.path) }
     }
 
-    func saveFavouriteFolders(_ urls: [URL]) {
-        defaults.set(urls.map(\.path), forKey: kFavouriteFolders)
-    }
-
-    func loadFavouriteTracks() -> [URL] {
-        let paths = defaults.stringArray(forKey: kFavouriteTracks) ?? []
-        return paths
-            .map { URL(fileURLWithPath: $0) }
-            .filter { FileManager.default.fileExists(atPath: $0.path) }
-    }
-
-    func saveFavouriteTracks(_ urls: [URL]) {
-        defaults.set(urls.map(\.path), forKey: kFavouriteTracks)
+    private func migrateDefaults() {
+        let d = UserDefaults.standard
+        let keys = ["modulr.lastFolder", "modulr.recents",
+                    "modulr.favouriteFolders", "modulr.favouriteTracks"]
+        guard keys.contains(where: { d.object(forKey: $0) != nil }) else { return }
+        if let last = d.string(forKey: "modulr.lastFolder") {
+            setLastFolder(URL(fileURLWithPath: last))
+        }
+        // Reversed so the newest entry gets the latest updated_at.
+        for path in (d.stringArray(forKey: "modulr.recents") ?? []).reversed() {
+            db.exec(LibraryQueries.recentUpsert, [uid(), .text(path)])
+        }
+        saveFavourites("folder", (d.stringArray(forKey: "modulr.favouriteFolders") ?? [])
+            .map { URL(fileURLWithPath: $0) })
+        saveFavourites("track", (d.stringArray(forKey: "modulr.favouriteTracks") ?? [])
+            .map { URL(fileURLWithPath: $0) })
+        keys.forEach { d.removeObject(forKey: $0) }
     }
 }

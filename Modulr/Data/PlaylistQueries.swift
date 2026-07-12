@@ -28,8 +28,8 @@ enum PlaylistQueries {
     """
 
     static let insertTrack = """
-        INSERT INTO playlist_tracks (playlist_uid, track_url, position)
-        VALUES (?, ?, ?)
+        INSERT INTO playlist_tracks (uid, playlist_uid, track_url, position)
+        VALUES (?, ?, ?, ?)
     """
 
     static let softDelete = """

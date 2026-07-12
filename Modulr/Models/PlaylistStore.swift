@@ -35,7 +35,7 @@ final class PlaylistStore {
             db.exec(PlaylistQueries.clearTracks, [.text(uid)])
             for (position, url) in playlist.trackURLs.enumerated() {
                 db.exec(PlaylistQueries.insertTrack,
-                        [.text(uid), .text(url.absoluteString), .int(position)])
+                        [.text(UUID().uuidString), .text(uid), .text(url.absoluteString), .int(position)])
             }
         }
     }

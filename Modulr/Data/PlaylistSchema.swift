@@ -32,12 +32,21 @@ enum PlaylistSchema {
 
     CREATE TABLE IF NOT EXISTS playlist_tracks (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        uid          TEXT NOT NULL UNIQUE,
         playlist_uid TEXT NOT NULL,
         track_url    TEXT NOT NULL,
         position     INTEGER NOT NULL DEFAULT 0,
+        created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         UNIQUE(playlist_uid, track_url)
     );
 
     CREATE INDEX IF NOT EXISTS idx_playlist_tracks_uid ON playlist_tracks(playlist_uid);
+
+    CREATE TRIGGER IF NOT EXISTS trg_playlist_tracks_updated_at
+    AFTER UPDATE ON playlist_tracks FOR EACH ROW
+    BEGIN
+        UPDATE playlist_tracks SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = OLD.id;
+    END;
     """
 }
