@@ -8,6 +8,8 @@ import AppKit
  * tint; the subtitle, empty text and a scanning state are configurable.
  */
 struct TrackSelectList: View {
+    enum SortKey: String, CaseIterable { case added = "Added", title = "Title", artist = "Artist", bpm = "BPM" }
+
     let tracks: [Track]
     @Binding var selected: Set<Track.ID>
     var tint: Color = Theme.accent
@@ -16,6 +18,16 @@ struct TrackSelectList: View {
     var subtitle: (Track) -> String = { $0.url.lastPathComponent }
 
     @State private var artCache: [URL: NSImage] = [:]
+    @State private var sortKey: SortKey = .added
+
+    private var sortedTracks: [Track] {
+        switch sortKey {
+        case .added:  return tracks.sorted { $0.dateAddedSort > $1.dateAddedSort }
+        case .title:  return tracks.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        case .artist: return tracks.sorted { $0.artistSort.localizedCaseInsensitiveCompare($1.artistSort) == .orderedAscending }
+        case .bpm:    return tracks.sorted { $0.bpmSort < $1.bpmSort }
+        }
+    }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -29,6 +41,22 @@ struct TrackSelectList: View {
             Text("\(selected.count) of \(tracks.count) selected")
                 .font(.caption).foregroundStyle(.secondary)
             Spacer()
+            Menu {
+                ForEach(SortKey.allCases, id: \.self) { key in
+                    Button {
+                        sortKey = key
+                    } label: {
+                        if sortKey == key { Label(key.rawValue, systemImage: "checkmark") }
+                        else { Text(key.rawValue) }
+                    }
+                }
+            } label: {
+                Label("Sort", systemImage: "arrow.up.arrow.down")
+            }
+            .menuStyle(.borderlessButton)
+            .controlSize(.small)
+            .fixedSize()
+            .disabled(tracks.isEmpty)
             Button("All") { selected = Set(tracks.map(\.id)) }
                 .controlSize(.small)
                 .disabled(tracks.isEmpty || selected.count == tracks.count)
@@ -50,7 +78,7 @@ struct TrackSelectList: View {
                     .padding(.top, 40)
             } else {
                 LazyVStack(spacing: 2) {
-                    ForEach(tracks) { row($0) }
+                    ForEach(sortedTracks) { row($0) }
                 }
                 .padding(8)
             }
