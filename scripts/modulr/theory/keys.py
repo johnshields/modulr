@@ -22,6 +22,12 @@ def normalise_musical(raw):
     if s in MADMOM_KEY_TO_MUSICAL:
         return MADMOM_KEY_TO_MUSICAL[s]
 
+    # Open Key Notation (10m minor / 4d major) -> Camelot -> musical.
+    okn = re.match(r"^(\d{1,2})([mMdD])$", s)
+    if okn and 1 <= (n := int(okn.group(1))) <= 12:
+        cam = f"{((n + 6) % 12) + 1}{'A' if okn.group(2).lower() == 'm' else 'B'}"
+        return CAMELOT_TO_MUSICAL.get(cam, raw)
+
     pitch, rest = _split_pitch(s.replace(" ", ""))
     if pitch is None or pitch[0] not in "ABCDEFG":
         return raw

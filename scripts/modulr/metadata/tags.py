@@ -556,10 +556,11 @@ class TagIO:
                 halves = re.split(r"\s[-–—]\s", raw, maxsplit=1)
                 if len(halves) == 2:
                     raw = halves[1]
-            # Strip an existing _KEY_BPM before slugging: a sharp key (F#m) would
-            # otherwise split on the # and leave an orphan letter after stripping.
-            raw = re.sub(r"_[A-G][#b]?m?_\d{2,3}$", "", raw)
+            # Strip a trailing _KEY_BPM (musical, Camelot or Open Key) before slugging.
+            raw = re.sub(r"_(?:[A-G][#b]?m?|\d{1,2}[abmd])_\d{2,3}$", "", raw, flags=re.IGNORECASE)
             title_part = slug(raw)
+            # Drop a trailing slugged digit key.
+            title_part = re.sub(r"-\d{1,2}[abmd]-\d{2,3}$", "", title_part)
         else:
             stem, _ext = os.path.splitext(filename)
             halves = re.split(r"\s[-–—]\s", stem, maxsplit=1)

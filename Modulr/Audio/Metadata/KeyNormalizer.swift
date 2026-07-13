@@ -95,6 +95,12 @@ enum KeyNormalizer {
 
         if isCamelot(s) { return s }
 
+        // Open Key Notation (10M minor / 4D major) -> Camelot.
+        if let last = s.last, last == "M" || last == "D",
+           let n = Int(s.dropLast()), n >= 1 && n <= 12 {
+            return "\(((n + 6) % 12) + 1)\(last == "M" ? "A" : "B")"
+        }
+
         var pitch = ""
         var rest = s
         if rest.count >= 2, ["#", "B"].contains(String(rest[rest.index(after: rest.startIndex)])) && rest.first?.isLetter == true {
