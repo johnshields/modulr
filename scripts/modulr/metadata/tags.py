@@ -575,6 +575,8 @@ class TagIO:
                 parts = parts[1:]
             title_part = slug(parts[0]) if parts else ""
 
+        # Drop a featured-artist clause; those names belong in the ARTIST tag.
+        title_part = re.sub(r"-(?:feat|ft|featuring)(?:-.*)?$", "", title_part)
         stripped = self._strip_artist_tokens(title_part, artist)
         stripped = self._strip_edition(stripped)
         # Keep a named remixer even when it lives only in the filename.
